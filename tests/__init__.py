@@ -1,0 +1,1 @@
+"""Test suite for OneBot v11 client adapter."""
