@@ -137,7 +137,7 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-__author__ = "OneBot Adapter Team"
-__email__ = "team@onebot.dev"
+__author__ = "yang208115"
+__email__ = "yang208115@lyuy.top"
 __license__ = "MIT"
-__copyright__ = "Copyright 2025 OneBot Adapter Team"
+__copyright__ = "Copyright 2025 yang208115"
