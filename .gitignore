@@ -151,3 +151,9 @@ src/onebot_adapter_client/_version.py
 
 .qoder/
 a.py
+.claude/
+.cursor/
+openspec/
+AGENTS.md
+CLAUDE.md
+QODER.md

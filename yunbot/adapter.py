@@ -63,10 +63,27 @@ class OneBotAdapter:
                 self.connections[conn_config.type] = connection
                 
                 # Create bot instance for this connection
+                # 如果没有指定 self_id，则稍后通过 get_login_info 获取
                 if conn_config.self_id:
                     bot = OneBotBot(int(conn_config.self_id), connection)
                     await bot.initialize()
                     self.bots[bot.self_id] = bot
+                else:
+                    # 先创建一个临时的 bot 实例，稍后通过 get_login_info 初始化
+                    bot = OneBotBot(0, connection)  # 临时 ID 为 0
+                    # 调用 get_login_info 获取实际的 self_id
+                    try:
+                        login_info = await bot.get_login_info()
+                        actual_self_id = login_info.get("user_id", 0)
+                        if actual_self_id != 0:
+                            bot.self_id = actual_self_id
+                            await bot.initialize()
+                            self.bots[bot.self_id] = bot
+                            logger.info(f"Bot {actual_self_id} initialized successfully via get_login_info")
+                        else:
+                            logger.warning("Failed to get valid self_id from get_login_info")
+                    except Exception as e:
+                        logger.error(f"Failed to initialize bot via get_login_info: {e}")
             
             self._running = True
             logger.info("OneBot v11 adapter started successfully")

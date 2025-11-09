@@ -258,6 +258,9 @@ class OneBotClient:
             WebhookConfig
         )
         
+       
+        kwargs.pop("self_id", None)
+        
         if connection_type == "http":
             config = HttpConfig(**kwargs)
         elif connection_type == "websocket":
