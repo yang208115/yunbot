@@ -1,170 +1,502 @@
 """YunBot 日志模块。
 
 此模块提供了独立的日志功能，支持彩色输出、文件轮转和自定义格式。
+基于 loguru 实现，采用分层架构设计，支持真正的多实例隔离。
+
+主要组件：
+    - LevelRegistry: 统一管理所有日志级别
+    - FormatManager: 管理日志格式字符串
+    - HandlerManager: 管理 handler 生命周期
+    - LoggerManager: 管理 logger 实例
+    - YunBotLogger: 公共 API 接口层
+
+典型用法：
+    >>> from yunbot.logger import get_logger
+    >>> logger = get_logger("App").setup(level="INFO")
+    >>> logger.info("应用启动")
 """
 
-import logging
-import os
 import sys
-from datetime import datetime
-from logging.handlers import RotatingFileHandler
-from typing import Optional, Any, Dict
+import os
+import threading
+from typing import Optional, Any, Dict, Callable, List
+from loguru import logger as _loguru_logger
 
 
-class ColoredFormatter(logging.Formatter):
-    """带颜色的日志格式化器。
+# ============================================================================
+# 常量定义
+# ============================================================================
+
+SUCCESS_LEVEL = 25  # SUCCESS 级别数值
+
+
+# ============================================================================
+# 自定义异常
+# ============================================================================
+
+class LoggerNotConfiguredError(RuntimeError):
+    """Logger 未配置异常。"""
+    pass
+
+
+class InvalidLogLevelError(ValueError):
+    """无效的日志级别异常。"""
+    pass
+
+
+class LoggerConfigError(RuntimeError):
+    """Logger 配置错误异常。"""
+    pass
+
+
+# ============================================================================
+# 核心组件
+# ============================================================================
+
+class LevelRegistry:
+    """级别注册中心,统一管理所有日志级别。
     
-    为不同级别的日志添加不同的颜色，使日志更易于阅读。
+    职责:
+        - 注册新的日志级别到 loguru
+        - 存储级别的数值和颜色信息
+        - 提供级别查询接口
+        - 确保级别注册的线程安全
+    
+    Attributes:
+        _levels (Dict[str, Dict[str, Any]]): 存储级别名称到级别信息的映射
+        _lock (threading.Lock): 保护级别注册的线程锁
+        _initialized (bool): 标记标准级别是否已初始化
     """
-
-    # 颜色代码
-    COLORS = {
-        'DEBUG': '\033[36m',     # 青色
-        'INFO': '\033[37m',      # 白色
-        'SUCCESS': '\033[37m',   # 白色（自定义级别）
-        'WARNING': '\033[33m',   # 黄色
-        'ERROR': '\033[31m',     # 红色
-        'CRITICAL': '\033[35m',  # 紫色
-    }
     
-    # 特定部分的颜色
-    TIME_COLOR = '\033[32m'       # 绿色
-    MODULE_COLOR = '\033[94m'     # 淡蓝色
-    FUNCTION_COLOR = '\033[94m'   # 淡蓝色
-    MESSAGE_COLOR = '\033[37m'    # 白色
-    RESET = '\033[0m'
-
-    def format(self, record: logging.LogRecord) -> str:
-        """格式化日志记录。
+    def __init__(self):
+        """初始化级别注册中心。"""
+        self._levels: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+        self._initialized = False
+    
+    def initialize_standard_levels(self) -> None:
+        """初始化标准日志级别。
+        
+        包括: DEBUG(10), INFO(20), SUCCESS(25), WARNING(30), ERROR(40), CRITICAL(50)
+        """
+        if self._initialized:
+            return
+        
+        with self._lock:
+            if self._initialized:  # 双重检查
+                return
+            
+            # 标准级别定义
+            standard_levels = [
+                ("DEBUG", 10, "<cyan>"),
+                ("INFO", 20, "<white>"),
+                ("SUCCESS", 25, "<white>"),
+                ("WARNING", 30, "<yellow>"),
+                ("ERROR", 40, "<red>"),
+                ("CRITICAL", 50, "<bold><red>"),
+            ]
+            
+            for name, level, color in standard_levels:
+                try:
+                    _loguru_logger.level(name)
+                    # 级别已存在,仅存储信息
+                    self._levels[name] = {"no": level, "color": color, "icon": "●"}
+                except ValueError:
+                    # 级别不存在,需要注册
+                    _loguru_logger.level(name, no=level, color=color, icon="●")
+                    self._levels[name] = {"no": level, "color": color, "icon": "●"}
+            
+            self._initialized = True
+    
+    def register_level(self, name: str, level: int, color: str = "<white>") -> None:
+        """注册自定义日志级别。
         
         Args:
-            record: 日志记录对象
+            name: 级别名称(将自动转换为大写)
+            level: 级别数值(数值越大优先级越高)
+            color: loguru 颜色标签,默认为白色
+        """
+        upper_name = name.upper()
+        
+        with self._lock:
+            # 检查级别是否已存在
+            if upper_name in self._levels:
+                # 更新颜色信息
+                self._levels[upper_name]["color"] = color
+                return
+            
+            # 尝试注册新级别到 loguru
+            try:
+                _loguru_logger.level(upper_name, no=level, color=color, icon="●")
+            except ValueError:
+                # 级别存在于 loguru 但不在我们的注册表中
+                # 这是合法的,只需添加到我们的注册表
+                pass
+            except Exception as e:
+                raise LoggerConfigError(f"Failed to register level '{upper_name}': {e}")
+            
+            # 存储级别信息
+            self._levels[upper_name] = {"no": level, "color": color, "icon": "●"}
+    
+    def is_registered(self, name: str) -> bool:
+        """检查级别是否已注册。
+        
+        Args:
+            name: 级别名称
             
         Returns:
-            str: 格式化后的日志字符串
+            bool: 级别是否已注册
         """
-        # 获取原始格式化的日志
-        log_message = super().format(record)
-        
-        if sys.stdout.isatty():
-            # 解析日志消息的各个部分
-            # 格式: 时间 [级别] 模块名 | 函数名:行号 | 消息内容
-            import re
-            
-            # 匹配日志格式的正则表达式
-            pattern = r'(\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[([A-Z]+)\] ([^|]+) \| ([^:]+):(\d+) \| (.*)'
-            match = re.match(pattern, log_message)
-            
-            if match:
-                time_part, level_part, module_part, func_part, line_part, message_part = match.groups()
-                
-                # 特殊处理：确保 exception 方法始终使用 ERROR 级别
-                if hasattr(record, 'funcName') and record.funcName == "exception":
-                    level_part = "ERROR"
-                
-                # 应用颜色
-                colored_time = f"{self.TIME_COLOR}{time_part}{self.RESET}"
-                # 级别使用原有颜色，如果未定义则检查动态颜色，否则使用白色
-                if level_part in self.COLORS:
-                    level_color = self.COLORS[level_part]
-                elif level_part in _dynamic_colors:
-                    level_color = _dynamic_colors[level_part]
-                else:
-                    level_color = '\033[37m'  # 默认白色
-                
-                colored_level = f"{level_color}[{level_part}]{self.RESET}"
-                colored_module = f"{self.MODULE_COLOR}{module_part.strip()}{self.RESET}"
-                colored_function = f"{self.FUNCTION_COLOR}{func_part}:{line_part}{self.RESET}"
-                colored_message = f"{self.MESSAGE_COLOR}{message_part}{self.RESET}"
-                
-                # 重新组合日志消息
-                return f"{colored_time} {colored_level} {colored_module} | {colored_function} | {colored_message}"
-            else:
-                # 如果不匹配预期格式，使用原有逻辑
-                if record.levelname in self.COLORS:
-                    level_color = self.COLORS[record.levelname]
-                elif record.levelname in _dynamic_colors:
-                    level_color = _dynamic_colors[record.levelname]
-                else:
-                    level_color = '\033[37m'  # 默认白色
-                
-                if level_color:
-                    return f"{level_color}{log_message}{self.RESET}"
-        
-        return log_message
-
-
-# 添加自定义日志级别
-SUCCESS_LEVEL = 25  # 在 INFO(20) 和 WARNING(30) 之间
-
-# 动态日志级别存储
-_dynamic_levels: Dict[str, int] = {}
-# 动态日志级别颜色存储
-_dynamic_colors: Dict[str, str] = {}
-
-
-def success(self: logging.Logger, message: str, *args: Any, **kwargs: Any) -> None:
-    """记录 SUCCESS 级别日志"""
-    if self.isEnabledFor(SUCCESS_LEVEL):
-        self._log(SUCCESS_LEVEL, message, args, **kwargs)
-
-
-def log_success(message: str, *args: Any, **kwargs: Any) -> None:
-    """记录 SUCCESS 级别日志（模块级别函数）"""
-    logging.log(SUCCESS_LEVEL, message, *args, **kwargs)
-
-
-def register_logger_level(name: str, level: int, color: str = '\033[37m') -> None:
-    """注册自定义日志级别
+        return name.upper() in self._levels
     
-    Args:
-        name: 级别名称
-        level: 数值级别
-        color: 颜色代码，默认为白色
+    def get_level_info(self, name: str) -> Optional[Dict[str, Any]]:
+        """获取级别信息。
+        
+        Args:
+            name: 级别名称
+            
+        Returns:
+            Optional[Dict]: 级别信息,如果未注册则返回 None
+        """
+        return self._levels.get(name.upper())
+    
+    def get_all_levels(self) -> Dict[str, Dict[str, Any]]:
+        """获取所有已注册级别。
+        
+        Returns:
+            Dict: 所有级别信息
+        """
+        return self._levels.copy()
+
+
+class FormatManager:
+    """格式管理器,管理日志格式字符串和格式化逻辑。
+    
+    职责:
+        - 提供默认的控制台和文件格式字符串
+        - 支持自定义格式字符串
+        - 处理 loguru 特殊标签
     """
-    # 转换名称为大写以保持一致性
-    upper_name = name.upper()
     
-    # 存储级别和颜色信息
-    _dynamic_levels[upper_name] = level
-    _dynamic_colors[upper_name] = color
+    # 默认控制台格式(带颜色)
+    DEFAULT_CONSOLE_FORMAT = (
+        "<green>{time:MM-DD HH:mm:ss}</green> "
+        "<level>[{level}]</level> "
+        "<cyan>{extra[logger_name]}</cyan> | "
+        "<cyan>{function}:{line}</cyan> | "
+        "<white>{message}</white>"
+    )
     
-    # 在 logging 模块中注册新级别
-    logging.addLevelName(level, upper_name)
+    # 默认文件格式(纯文本)
+    DEFAULT_FILE_FORMAT = (
+        "{time:YYYY-MM-DD HH:mm:ss} "
+        "[{level}] "
+        "{extra[logger_name]} | "
+        "{function}:{line} | "
+        "{message}"
+    )
     
-    # 创建对应的日志方法
-    def level_method(self: logging.Logger, message: str, *args: Any, **kwargs: Any) -> None:
-        if self.isEnabledFor(level):
-            self._log(level, message, args, **kwargs)
+    @staticmethod
+    def get_console_format(custom_format: Optional[str] = None) -> str:
+        """获取控制台格式字符串。
+        
+        Args:
+            custom_format: 自定义格式字符串,如果为 None 则使用默认格式
+            
+        Returns:
+            str: 格式字符串
+        """
+        return custom_format if custom_format else FormatManager.DEFAULT_CONSOLE_FORMAT
     
-    # 添加到 Logger 类
-    setattr(logging.Logger, name.lower(), level_method)
-    
-    # 添加模块级别的函数
-    def log_level_method(message: str, *args: Any, **kwargs: Any) -> None:
-        logging.log(level, message, *args, **kwargs)
-    
-    setattr(logging, name.lower(), log_level_method)
+    @staticmethod
+    def get_file_format(custom_format: Optional[str] = None) -> str:
+        """获取文件格式字符串。
+        
+        Args:
+            custom_format: 自定义格式字符串,如果为 None 则使用默认格式
+            
+        Returns:
+            str: 格式字符串
+        """
+        return custom_format if custom_format else FormatManager.DEFAULT_FILE_FORMAT
 
 
-# 添加到 logging 模块
-logging.addLevelName(SUCCESS_LEVEL, 'SUCCESS')
-logging.Logger.success = success  # type: ignore
-logging.success = log_success  # type: ignore
+class HandlerManager:
+    """处理器管理器,管理每个 logger 实例的 handler。
+    
+    职责:
+        - 为每个 logger 实例创建独立的 handler ID
+        - 通过过滤器实现实例隔离
+        - 支持动态添加和移除 handler
+        - 管理文件 handler 的轮转配置
+    
+    Attributes:
+        _handler_ids (Dict[str, List[int]]): logger 名称到 handler ID 列表的映射
+        _lock (threading.Lock): 保护 handler 操作的线程锁
+    """
+    
+    def __init__(self):
+        """初始化处理器管理器。"""
+        self._handler_ids: Dict[str, List[int]] = {}
+        self._lock = threading.Lock()
+    
+    def add_console_handler(
+        self,
+        logger_name: str,
+        level: str,
+        format_str: str
+    ) -> int:
+        """添加控制台 handler。
+        
+        Args:
+            logger_name: logger 名称
+            level: 日志级别
+            format_str: 格式字符串
+            
+        Returns:
+            int: handler ID
+        """
+        # 创建 filter 函数,只处理匹配的日志
+        def logger_filter(record):
+            return record["extra"].get("logger_name") == logger_name
+        
+        # 添加控制台 handler
+        handler_id = _loguru_logger.add(
+            sys.stdout,
+            format=format_str,
+            level=level.upper(),
+            colorize=True,
+            filter=logger_filter
+        )
+        
+        # 保存 handler ID
+        with self._lock:
+            if logger_name not in self._handler_ids:
+                self._handler_ids[logger_name] = []
+            self._handler_ids[logger_name].append(handler_id)
+        
+        return handler_id
+    
+    def add_file_handler(
+        self,
+        logger_name: str,
+        level: str,
+        format_str: str,
+        log_file: str,
+        rotation: int,
+        retention: int,
+        encoding: str = "utf-8"
+    ) -> int:
+        """添加文件 handler。
+        
+        Args:
+            logger_name: logger 名称
+            level: 日志级别
+            format_str: 格式字符串
+            log_file: 日志文件路径
+            rotation: 轮转大小(字节)
+            retention: 保留文件数量
+            encoding: 文件编码
+            
+        Returns:
+            int: handler ID
+        """
+        # 创建 filter 函数,只处理匹配的日志
+        def logger_filter(record):
+            return record["extra"].get("logger_name") == logger_name
+        
+        # 添加文件 handler
+        handler_id = _loguru_logger.add(
+            log_file,
+            format=format_str,
+            level=level.upper(),
+            filter=logger_filter,
+            rotation=rotation,
+            retention=retention,
+            encoding=encoding,
+            enqueue=True  # 线程安全的异步写入
+        )
+        
+        # 保存 handler ID
+        with self._lock:
+            if logger_name not in self._handler_ids:
+                self._handler_ids[logger_name] = []
+            self._handler_ids[logger_name].append(handler_id)
+        
+        return handler_id
+    
+    def remove_handlers(self, logger_name: str) -> None:
+        """移除指定 logger 的所有 handler。
+        
+        Args:
+            logger_name: logger 名称
+        """
+        with self._lock:
+            if logger_name not in self._handler_ids:
+                return
+            
+            # 复制列表避免迭代时修改
+            handler_ids = self._handler_ids[logger_name].copy()
+            
+            # 移除所有 handler
+            for handler_id in handler_ids:
+                try:
+                    _loguru_logger.remove(handler_id)
+                except ValueError:
+                    # handler 已被移除,忽略
+                    pass
+            
+            # 清空列表
+            self._handler_ids[logger_name].clear()
+    
+    def get_handler_ids(self, logger_name: str) -> List[int]:
+        """获取指定 logger 的 handler ID 列表。
+        
+        Args:
+            logger_name: logger 名称
+            
+        Returns:
+            List[int]: handler ID 列表
+        """
+        with self._lock:
+            return self._handler_ids.get(logger_name, []).copy()
+
+
+class LoggerManager:
+    """日志记录器管理,管理 YunBotLogger 实例的生命周期和配置。
+    
+    职责:
+        - 维护 logger 实例的注册表
+        - 协调各个管理器完成配置
+        - 提供 logger 查询接口
+        - 管理默认 logger 实例
+    
+    Attributes:
+        _instances (Dict[str, YunBotLogger]): 名称到实例的映射
+        _instance_configs (Dict[str, Dict[str, Any]]): 实例配置信息
+        _lock (threading.Lock): 保护注册表的线程锁
+    """
+    
+    def __init__(self):
+        """初始化日志记录器管理。"""
+        self._instances: Dict[str, "YunBotLogger"] = {}
+        self._instance_configs: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+    
+    def get_instance(self, name: str) -> "YunBotLogger":
+        """获取或创建 logger 实例。
+        
+        Args:
+            name: logger 名称
+            
+        Returns:
+            YunBotLogger: logger 实例
+        """
+        # 快速路径:无锁检查
+        if name in self._instances:
+            return self._instances[name]
+        
+        # 慢速路径:加锁创建
+        with self._lock:
+            # 双重检查
+            if name in self._instances:
+                return self._instances[name]
+            
+            # 创建新实例
+            instance = YunBotLogger._create_instance(name)
+            self._instances[name] = instance
+            return instance
+    
+    def has_instance(self, name: str) -> bool:
+        """检查实例是否存在。
+        
+        Args:
+            name: logger 名称
+            
+        Returns:
+            bool: 实例是否存在
+        """
+        return name in self._instances
+    
+    def get_all_instances(self) -> Dict[str, "YunBotLogger"]:
+        """获取所有实例。
+        
+        Returns:
+            Dict: 所有 logger 实例
+        """
+        return self._instances.copy()
+    
+    def remove_instance(self, name: str) -> None:
+        """移除实例及其 handler。
+        
+        Args:
+            name: logger 名称
+        """
+        with self._lock:
+            if name in self._instances:
+                # 移除 handler
+                _handler_manager.remove_handlers(name)
+                # 删除实例
+                del self._instances[name]
+                if name in self._instance_configs:
+                    del self._instance_configs[name]
 
 
 class YunBotLogger:
-    """YunBot 日志记录器"""
+    """YunBot 日志记录器,提供公共 API 接口层。
     
-    def __init__(self, name: str = "YunBot"):
-        """初始化日志记录器
+    支持:
+        - 多实例隔离
+        - 配置热更新
+        - 动态日志级别
+        - 标准日志方法(debug, info, warning, error, critical, exception, success)
+    
+    Attributes:
+        name (str): Logger 名称
+        _config (Dict[str, Any]): 当前配置
+        _handler_ids (List[int]): Handler ID 列表
+        _config_lock (threading.Lock): 配置更新锁
+        _configured (bool): 是否已配置
+        _method_cache (Dict[str, Callable]): 动态方法缓存
+    """
+    
+    # 属性注解,供类型检查器识别
+    name: str
+    _configured: bool
+    _config: Dict[str, Any]
+    _handler_ids: List[int]
+    _config_lock: threading.Lock
+    _method_cache: Dict[str, Callable]
+    
+    @staticmethod
+    def _create_instance(name: str) -> "YunBotLogger":
+        """创建新实例(内部方法)。
         
         Args:
-            name: 日志记录器名称
+            name: logger 名称
+            
+        Returns:
+            YunBotLogger: 新实例
         """
-        self.name = name
-        self.logger = logging.getLogger(name)
-        self._configured = False
+        instance = object.__new__(YunBotLogger)
+        instance.name = name
+        instance._configured = False
+        instance._config = {}
+        instance._handler_ids = []
+        instance._config_lock = threading.Lock()
+        instance._method_cache = {}
+        return instance
+    
+    def __new__(cls, name: str = "YunBot") -> "YunBotLogger":
+        """获取或创建 logger 实例。
+        
+        Args:
+            name: logger 名称
+            
+        Returns:
+            YunBotLogger: logger 实例
+        """
+        return _logger_manager.get_instance(name)
     
     def setup(
         self,
@@ -175,154 +507,227 @@ class YunBotLogger:
         max_size: int = 10 * 1024 * 1024,  # 10MB
         backup_count: int = 5
     ) -> "YunBotLogger":
-        """设置日志记录。
+        """设置日志记录(可多次调用)。
         
         Args:
-            level: 日志级别，可选值为 DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
-            format_string: 日志格式字符串，如果为 None 则使用默认格式
+            level: 日志级别,可选值为 DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
+            format_string: 日志格式字符串,如果为 None 则使用默认格式
             log_to_file: 是否将日志写入文件
             log_dir: 日志文件目录
-            max_size: 单个日志文件的最大大小（字节）
+            max_size: 单个日志文件的最大大小(字节)
             backup_count: 保留的日志文件数量
             
         Returns:
             YunBotLogger: 配置好的日志记录器实例
-        """
-        if self._configured:
-            # 如果已经配置过，先清除现有的处理器
-            for handler in self.logger.handlers[:]:
-                self.logger.removeHandler(handler)
-        
-        # 设置日志级别
-        level_num = getattr(logging, level.upper(), logging.INFO)
-        self.logger.setLevel(level_num)
-        
-        # 设置日志格式
-        if format_string is None:
-            # 使用用户要求的格式：时间 + 级别 + 模块名 + 函数名:行号 | 消息内容
-            format_string = (
-                "%(asctime)s [%(levelname)s] %(name)s | %(funcName)s:%(lineno)d | %(message)s"
-            )
-        
-        # 控制台处理器
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(ColoredFormatter(format_string, datefmt="%m-%d %H:%M:%S"))
-        self.logger.addHandler(console_handler)
-        
-        # 文件处理器（可选）
-        if log_to_file:
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
             
-            log_file = os.path.join(log_dir, f"{self.name}_{datetime.now().strftime('%Y%m%d')}.log")
-            file_handler = RotatingFileHandler(
-                log_file,
-                maxBytes=max_size,
-                backupCount=backup_count,
-                encoding='utf-8'  # 确保使用UTF-8编码
+        Raises:
+            InvalidLogLevelError: 无效的日志级别
+            LoggerConfigError: 配置参数错误
+        """
+        # 验证参数
+        upper_level = level.upper()
+        if not _level_registry.is_registered(upper_level):
+            available_levels = ", ".join(_level_registry.get_all_levels().keys())
+            raise InvalidLogLevelError(
+                f"Invalid log level '{level}'. Available levels: {available_levels}"
             )
-            file_handler.setFormatter(logging.Formatter(format_string, datefmt="%Y-%m-%d %H:%M:%S"))
-            self.logger.addHandler(file_handler)
         
-        self._configured = True
+        if max_size <= 0:
+            raise LoggerConfigError("max_size must be greater than 0")
+        
+        if backup_count < 0:
+            raise LoggerConfigError("backup_count must be greater than or equal to 0")
+        
+        with self._config_lock:
+            # 移除旧 handler
+            _handler_manager.remove_handlers(self.name)
+            self._handler_ids.clear()
+            
+            # 获取格式字符串
+            console_format = _format_manager.get_console_format(format_string)
+            
+            # 添加控制台 handler
+            handler_id = _handler_manager.add_console_handler(
+                self.name,
+                upper_level,
+                console_format
+            )
+            self._handler_ids.append(handler_id)
+            
+            # 添加文件 handler(如果需要)
+            if log_to_file:
+                # 创建日志目录
+                try:
+                    if not os.path.exists(log_dir):
+                        os.makedirs(log_dir, exist_ok=True)
+                except Exception as e:
+                    raise LoggerConfigError(f"Failed to create log directory '{log_dir}': {e}")
+                
+                # 文件名包含日期
+                log_file = os.path.join(log_dir, f"{self.name}_{{time:YYYYMMDD}}.log")
+                file_format = _format_manager.get_file_format(format_string)
+                
+                # Windows 下使用 UTF-8-BOM 编码
+                encoding = "utf-8-sig" if os.name == 'nt' else "utf-8"
+                
+                handler_id = _handler_manager.add_file_handler(
+                    self.name,
+                    upper_level,
+                    file_format,
+                    log_file,
+                    max_size,
+                    backup_count,
+                    encoding
+                )
+                self._handler_ids.append(handler_id)
+            
+            # 保存配置
+            self._config = {
+                "level": upper_level,
+                "format_string": format_string,
+                "log_to_file": log_to_file,
+                "log_dir": log_dir,
+                "max_size": max_size,
+                "backup_count": backup_count,
+            }
+            self._configured = True
+        
         return self
     
-    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """记录 DEBUG 级别日志"""
-        self.logger.debug(message, *args, **kwargs)
-    
-    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """记录 INFO 级别日志"""
-        self.logger.info(message, *args, **kwargs)
-    
-    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """记录 WARNING 级别日志"""
-        self.logger.warning(message, *args, **kwargs)
-    
-    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """记录 ERROR 级别日志"""
-        self.logger.error(message, *args, **kwargs)
-    
-    def critical(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """记录 CRITICAL 级别日志"""
-        self.logger.critical(message, *args, **kwargs)
-    
-    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """记录异常日志（自动包含调用栈信息）"""
-        # 确保使用 ERROR 级别记录异常
-        kwargs['exc_info'] = kwargs.get('exc_info', True)
-        self.logger.error(message, *args, **kwargs)
-    
-    def __getattr__(self, name: str) -> Any:
-        """动态添加日志级别方法
+    def _check_configured(self) -> None:
+        """检查 logger 是否已配置。
         
-        通过此方法动态处理自定义日志级别，支持任意名称的日志级别
+        Raises:
+            LoggerNotConfiguredError: Logger 未配置
+        """
+        if not self._configured:
+            raise LoggerNotConfiguredError(
+                f"Logger '{self.name}' is not configured. Please call setup() first."
+            )
+    
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录 DEBUG 级别日志。
         
         Args:
-            name: 要访问的属性名称
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).debug(message, *args, **kwargs)
+    
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录 INFO 级别日志。
+        
+        Args:
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).info(message, *args, **kwargs)
+    
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录 WARNING 级别日志。
+        
+        Args:
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).warning(message, *args, **kwargs)
+    
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录 ERROR 级别日志。
+        
+        Args:
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).error(message, *args, **kwargs)
+    
+    def critical(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录 CRITICAL 级别日志。
+        
+        Args:
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).critical(message, *args, **kwargs)
+    
+    def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录异常日志(含堆栈信息)。
+        
+        Args:
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).exception(message, *args, **kwargs)
+    
+    def success(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """记录 SUCCESS 级别日志。
+        
+        Args:
+            message: 日志消息,支持 {} 风格格式化
+            *args: 位置参数
+            **kwargs: 关键字参数
+        """
+        self._check_configured()
+        _loguru_logger.bind(logger_name=self.name).log("SUCCESS", message, *args, **kwargs)
+    
+    def __getattr__(self, name: str) -> Callable:
+        """动态创建自定义级别方法。
+        
+        Args:
+            name: 方法名(小写的级别名称)
             
         Returns:
-            对应的日志方法或抛出 AttributeError
+            Callable: 日志方法
+            
+        Raises:
+            AttributeError: 级别未注册或方法不存在
         """
-        # 处理已知的自定义日志级别
-        if name == "success":
-            def success_method(message: str, *args: Any, **kwargs: Any) -> None:
-                """记录 SUCCESS 级别日志"""
-                # 确保 logger 有 success 方法
-                if hasattr(self.logger, 'success'):
-                    self.logger.success(message, *args, **kwargs)  # type: ignore
-                else:
-                    # 如果没有 success 方法，使用 log 方法直接记录
-                    self.logger.log(SUCCESS_LEVEL, message, *args, **kwargs)
-            return success_method
-            
-        # 处理标准日志方法，避免被当作动态级别处理
-        if name in ['debug', 'info', 'warning', 'error', 'critical', 'exception']:
-            # 对于标准日志方法，直接抛出异常，因为它们应该在类中明确定义
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        # 内部属性,直接抛出 AttributeError
+        if name.startswith("_"):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         
-        # 动态处理通过 register_logger_level 注册的级别
+        # 检查缓存
+        if name in self._method_cache:
+            return self._method_cache[name]
+        
+        # 检查级别是否已注册
         upper_name = name.upper()
-        if upper_name in _dynamic_levels:
-            level = _dynamic_levels[upper_name]
-            def registered_method(message: str, *args: Any, **kwargs: Any) -> None:
-                """记录注册的自定义级别日志"""
-                self.logger.log(level, message, *args, **kwargs)
-            return registered_method
+        if not _level_registry.is_registered(upper_name):
+            raise AttributeError(
+                f"Log level '{upper_name}' is not registered. "
+                f"Use register_logger_level() to register it first."
+            )
         
-        # 动态创建任意名称的日志级别
-        # 检查是否为有效的日志方法名（避免访问特殊属性）
-        if not name.startswith('_') and name.isidentifier():
-            # 为新级别分配一个唯一的级别数值
-            # 确保级别数值在合适的范围内（介于 INFO 和 WARNING 之间，或者更高）
-            if upper_name not in _dynamic_levels:
-                # 为每个新级别分配一个唯一的数值，从 40 开始递增
-                base_level = 40
-                new_level = base_level + len(_dynamic_levels) * 5
-                _dynamic_levels[upper_name] = new_level
-                # 默认颜色为白色
-                _dynamic_colors[upper_name] = '\033[37m'
-                # 在 logging 模块中注册新级别
-                logging.addLevelName(new_level, upper_name)
-            
-            level = _dynamic_levels[upper_name]
-            
-            def dynamic_method(message: str, *args: Any, **kwargs: Any) -> None:
-                """记录动态级别日志"""
-                self.logger.log(level, message, *args, **kwargs)
-            
-            return dynamic_method
+        # 创建动态方法
+        def log_method(message: str, *args: Any, **kwargs: Any) -> None:
+            self._check_configured()
+            _loguru_logger.bind(logger_name=self.name).log(upper_name, message, *args, **kwargs)
         
-        # 对于其他未知属性，抛出异常
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        # 缓存方法
+        self._method_cache[name] = log_method
+        return log_method
 
 
-# 创建默认的日志记录器实例
-default_logger = YunBotLogger("YunBot")
-
+# ============================================================================
+# 模块级函数
+# ============================================================================
 
 def get_logger(name: str = "YunBot") -> YunBotLogger:
-    """获取日志记录器实例
+    """获取日志记录器实例。
+    
+    相同名称的 logger 仅创建一次。
     
     Args:
         name: 日志记录器名称
@@ -333,7 +738,6 @@ def get_logger(name: str = "YunBot") -> YunBotLogger:
     return YunBotLogger(name)
 
 
-# 为向后兼容保留的函数
 def setup_logging(
     level: str = "INFO",
     format_string: Optional[str] = None,
@@ -368,14 +772,77 @@ def setup_logging(
     )
 
 
-# 默认导出
+def register_logger_level(name: str, level: int, color: str = "<white>") -> None:
+    """注册自定义日志级别。
+    
+    Args:
+        name: 级别名称（将自动转换为大写）
+        level: 级别数值（数值越大优先级越高）
+        color: loguru 颜色标签，默认为白色
+    """
+    _level_registry.register_level(name, level, color)
+
+
+def success(message: str, *args: Any, **kwargs: Any) -> None:
+    """使用默认 logger 记录 SUCCESS 级别日志。
+    
+    Args:
+        message: 日志消息，支持 {} 风格格式化
+        *args: 位置参数
+        **kwargs: 关键字参数
+    """
+    default_logger.success(message, *args, **kwargs)
+
+
+def log_success(message: str, *args: Any, **kwargs: Any) -> None:
+    """使用默认 logger 记录 SUCCESS 级别日志（别名）。
+    
+    Args:
+        message: 日志消息，支持 {} 风格格式化
+        *args: 位置参数
+        **kwargs: 关键字参数
+    """
+    default_logger.success(message, *args, **kwargs)
+
+
+# ============================================================================
+# 模块初始化
+# ============================================================================
+
+# 创建全局管理器实例
+_level_registry = LevelRegistry()
+_format_manager = FormatManager()
+_handler_manager = HandlerManager()
+_logger_manager = LoggerManager()
+
+# 移除 loguru 默认 handler
+_loguru_logger.remove()
+
+# 初始化标准级别
+_level_registry.initialize_standard_levels()
+
+# 创建并自动配置默认 logger
+default_logger = YunBotLogger("YunBot").setup(level="INFO")
+
+
+# ============================================================================
+# 导出
+# ============================================================================
+
 __all__ = [
+    # 类
     "YunBotLogger",
+    # 函数
     "get_logger",
     "setup_logging",
-    "default_logger",
-    "SUCCESS_LEVEL",
+    "register_logger_level",
     "success",
     "log_success",
-    "register_logger_level",
+    # 变量
+    "default_logger",
+    "SUCCESS_LEVEL",
+    # 异常
+    "LoggerNotConfiguredError",
+    "InvalidLogLevelError",
+    "LoggerConfigError",
 ]
