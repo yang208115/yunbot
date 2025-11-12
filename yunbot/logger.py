@@ -614,7 +614,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).debug(message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).debug(message, *args, **kwargs)
     
     def info(self, message: str, *args: Any, **kwargs: Any) -> None:
         """记录 INFO 级别日志。
@@ -625,7 +625,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).info(message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).info(message, *args, **kwargs)
     
     def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
         """记录 WARNING 级别日志。
@@ -636,7 +636,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).warning(message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).warning(message, *args, **kwargs)
     
     def error(self, message: str, *args: Any, **kwargs: Any) -> None:
         """记录 ERROR 级别日志。
@@ -647,7 +647,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).error(message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).error(message, *args, **kwargs)
     
     def critical(self, message: str, *args: Any, **kwargs: Any) -> None:
         """记录 CRITICAL 级别日志。
@@ -658,7 +658,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).critical(message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).critical(message, *args, **kwargs)
     
     def exception(self, message: str, *args: Any, **kwargs: Any) -> None:
         """记录异常日志(含堆栈信息)。
@@ -669,7 +669,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).exception(message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).exception(message, *args, **kwargs)
     
     def success(self, message: str, *args: Any, **kwargs: Any) -> None:
         """记录 SUCCESS 级别日志。
@@ -680,7 +680,7 @@ class YunBotLogger:
             **kwargs: 关键字参数
         """
         self._check_configured()
-        _loguru_logger.bind(logger_name=self.name).log("SUCCESS", message, *args, **kwargs)
+        _loguru_logger.bind(logger_name=self.name).opt(depth=1).log("SUCCESS", message, *args, **kwargs)
     
     def __getattr__(self, name: str) -> Callable:
         """动态创建自定义级别方法。
@@ -713,7 +713,7 @@ class YunBotLogger:
         # 创建动态方法
         def log_method(message: str, *args: Any, **kwargs: Any) -> None:
             self._check_configured()
-            _loguru_logger.bind(logger_name=self.name).log(upper_name, message, *args, **kwargs)
+            _loguru_logger.bind(logger_name=self.name).opt(depth=1).log(upper_name, message, *args, **kwargs)
         
         # 缓存方法
         self._method_cache[name] = log_method
