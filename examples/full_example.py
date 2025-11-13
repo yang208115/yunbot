@@ -12,13 +12,7 @@ OneBot v11 客户端完整功能示例
 """
 
 import asyncio
-import os
-import sys
 
-# 添加项目根目录到 Python 路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-# 使用新的日志模块
 from yunbot.logger import get_logger, setup_logging
 from yunbot import OneBotClient, Message, MessageSegment
 from yunbot import NetworkException, ActionFailed, ApiNotAvailable
@@ -26,7 +20,6 @@ from yunbot import NetworkException, ActionFailed, ApiNotAvailable
 # 设置日志记录器
 logger = setup_logging(
     level="INFO",
-    format_string="%(asctime)s [%(levelname)s] %(name)s | %(funcName)s:%(lineno)d | %(message)s",
     logger_name="Test"
 )
 
@@ -35,8 +28,8 @@ async def main():
     # 创建客户端，不指定 self_id，让系统动态获取
     client = OneBotClient.create_simple_client(
         connection_type="websocket",
-        url="ws://8.134.161.25:3001",  # 请替换为实际的 WebSocket 地址
-        access_token="Lyf123456",  # 请替换为实际的访问令牌
+        url="ws://0.0.0.0:3001",  # 请替换为实际的 WebSocket 地址
+        access_token="",  # 请替换为实际的访问令牌
         heartbeat_interval=30.0,
         timeout=30.0
     )
