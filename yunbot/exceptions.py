@@ -156,13 +156,13 @@ class ActionFailed(OneBotException):
 
 
 class ApiNotAvailable(OneBotException):
-    """API not available exception.
+    """API 不可用异常。
     
     当 API 不可用时抛出，例如连接未建立或 API 被禁用。
     """
     
     def __init__(self, message: str = "API not available", *args: Any) -> None:
-        """Initialize API not available exception.
+        """初始化 API 不可用异常。
         
         Args:
             message: 错误信息
@@ -176,13 +176,13 @@ class ApiNotAvailable(OneBotException):
 
 
 class TimeoutException(NetworkException):
-    """Timeout exception.
+    """超时异常。
     
     当请求超时时抛出。
     """
     
     def __init__(self, message: str = "Request timeout", *args: Any) -> None:
-        """Initialize timeout exception.
+        """初始化超时异常。
         
         Args:
             message: 错误信息
@@ -196,13 +196,13 @@ class TimeoutException(NetworkException):
 
 
 class AuthenticationFailed(OneBotException):
-    """Authentication failed exception.
+    """身份验证失败异常。
     
     当身份验证失败时抛出，例如访问令牌无效。
     """
     
     def __init__(self, message: str = "Authentication failed", *args: Any) -> None:
-        """Initialize authentication failed exception.
+        """初始化身份验证失败异常。
         
         Args:
             message: 错误信息
@@ -216,7 +216,7 @@ class AuthenticationFailed(OneBotException):
 
 
 class ConnectionClosed(NetworkException):
-    """Connection closed exception."""
+    """连接关闭异常。"""
     
     def __init__(
         self, 
@@ -224,22 +224,22 @@ class ConnectionClosed(NetworkException):
         code: Optional[int] = None,
         *args: Any
     ) -> None:
-        """Initialize connection closed exception."""
+        """初始化连接关闭异常。"""
         super().__init__(message, *args)
         self.code = code
 
 
 class InvalidEvent(OneBotException):
-    """Invalid event exception."""
+    """无效事件异常。"""
     
     def __init__(self, message: str = "Invalid event data", *args: Any) -> None:
-        """Initialize invalid event exception."""
+        """初始化无效事件异常。"""
         super().__init__(message, *args)
 
 
 class ConfigurationError(OneBotException):
-    """Configuration error exception."""
+    """配置错误异常。"""
     
     def __init__(self, message: str = "Configuration error", *args: Any) -> None:
-        """Initialize configuration error exception."""
+        """初始化配置错误异常。"""
         super().__init__(message, *args)

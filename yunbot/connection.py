@@ -1,7 +1,7 @@
-"""WebSocket connection management for OneBot v11 client adapter.
+"""OneBot v11 客户端适配器的 WebSocket 连接管理。
 
-This module provides WebSocket connection implementation for the OneBot v11 client.
-It handles connection establishment, message sending/receiving, and event processing.
+该模块为 OneBot v11 客户端提供 WebSocket 连接实现。
+它处理连接建立、消息发送/接收和事件处理。
 """
 
 import asyncio
@@ -19,13 +19,13 @@ from .store import ResultStore
 
 
 class WebSocketConnection:
-    """WebSocket connection implementation for OneBot v11."""
+    """OneBot v11 的 WebSocket 连接实现。"""
 
     def __init__(self, config: WebSocketConfig):
-        """Initialize WebSocket connection.
+        """初始化 WebSocket 连接。
         
         Args:
-            config: WebSocket configuration
+            config: WebSocket 配置
         """
         self.config: WebSocketConfig = config
         self._session: Optional[ClientSession] = None
@@ -42,19 +42,19 @@ class WebSocketConnection:
         """检查连接是否已建立
         
         Returns:
-            bool: True if connected and not closed, False otherwise
+            bool: 如果已连接且未关闭则返回 True，否则返回 False
         """
         return self.connected and not self._closed
 
     async def connect(self) -> None:
         """建立 WebSocket 连接
         
-        This method establishes a WebSocket connection using the provided configuration.
-        It sets up the session, connects to the WebSocket endpoint, and starts
-        the receive and heartbeat loops.
+        该方法使用提供的配置建立 WebSocket 连接。
+        它设置会话，连接到 WebSocket 端点，并启动
+        接收和心跳循环。
         
         Raises:
-            NetworkException: If the connection fails
+            NetworkException: 如果连接失败则抛出
         """
         headers = {}
         if self.config.access_token:
@@ -86,8 +86,8 @@ class WebSocketConnection:
     async def disconnect(self) -> None:
         """断开 WebSocket 连接
         
-        This method gracefully disconnects the WebSocket connection,
-        cancels all running tasks, and cleans up resources.
+        该方法优雅地断开 WebSocket 连接，
+        取消所有运行任务，并清理资源。
         """
         self._closed = True
         self.connected = False
@@ -120,22 +120,22 @@ class WebSocketConnection:
     async def send_request(self, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """发送 WebSocket 请求并等待真实响应
         
-        This method sends a request through the WebSocket connection and waits
-        for the response using the ResultStore mechanism.
+        该方法通过 WebSocket 连接发送请求，并使用 ResultStore 机制
+        等待响应。
         
         Args:
-            action: The API action to call
-            params: Parameters for the API call
+            action: 要调用的 API 操作
+            params: API 调用的参数
             
         Returns:
-            Dict[str, Any]: The API response data
+            Dict[str, Any]: API 响应数据
             
         Raises:
-            NetworkException: If the connection is not established
-            Exception: If the request fails
+            NetworkException: 如果连接未建立则抛出
+            Exception: 如果请求失败则抛出
         """
         if not self.is_connected or not self._ws:
-            raise NetworkException("WebSocket连接未建立")
+            raise NetworkException("WebSocket 连接未建立")
 
         request_id = generate_request_id()
         payload = {
@@ -176,7 +176,7 @@ class WebSocketConnection:
             for handler in self._event_handlers:
                 try:
                     if asyncio.iscoroutinefunction(handler):
-                        # 使用create_task避免阻塞事件处理
+                        # 使用 create_task 避免阻塞事件处理
                         asyncio.create_task(handler(event))
                     else:
                         handler(event)
@@ -186,25 +186,25 @@ class WebSocketConnection:
     async def _receive_loop(self) -> None:
         """接收消息循环"""
         if not self._ws:
-            logger.error("WebSocket连接未建立")
+            logger.error("WebSocket 连接未建立")
             return
             
         try:
             async for msg in self._ws:
                 if msg.type == WSMsgType.TEXT:
-                    # 使用create_task避免阻塞接收循环
+                    # 使用 create_task 避免阻塞接收循环
                     asyncio.create_task(self._handle_message(msg.data))
                 elif msg.type == WSMsgType.BINARY:
-                    # 使用create_task避免阻塞接收循环
+                    # 使用 create_task 避免阻塞接收循环
                     asyncio.create_task(self._handle_message(msg.data.decode()))
                 elif msg.type == WSMsgType.ERROR:
                     if self._ws:
-                        logger.error(f"WebSocket错误: {self._ws.exception()}")
+                        logger.error(f"WebSocket 错误: {self._ws.exception()}")
                 elif msg.type in (WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED):
-                    logger.info("WebSocket连接已关闭")
+                    logger.info("WebSocket 连接已关闭")
                     break
         except Exception as e:
-            logger.error(f"WebSocket接收错误: {e}")
+            logger.error(f"WebSocket 接收错误: {e}")
         finally:
             self.connected = False
 
@@ -217,7 +217,7 @@ class WebSocketConnection:
             while self.is_connected and self._ws:
                 await asyncio.sleep(heartbeat_interval)
                 if self.is_connected and self._ws:
-                    logger.debug("发送WebSocket心跳请求")
+                    logger.debug("发送 WebSocket 心跳请求")
                     await self._ws.ping()
         except asyncio.CancelledError:
             pass
@@ -250,7 +250,7 @@ class WebSocketConnection:
                 elif message.get("meta_event_type") == "lifecycle":
                     logger.info(f"Bot 机器人生命周期: {message.get('sub_type')}")
                 else:
-                    logger.debug(f"Meta event: {message.get('meta_event_type')}")
+                    logger.debug(f"元事件: {message.get('meta_event_type')}")
             elif message.get("post_type") == "message":
                 # 消息事件
                 sender = message.get("sender", {}).get("nickname", "Unknown")
@@ -261,39 +261,39 @@ class WebSocketConnection:
 
             # 处理 API 响应 - 使用 ResultStore
             if "status" in message and "retcode" in message:
-                logger.debug(f"检测到API响应: {message}")
+                logger.debug(f"检测到 API 响应: {message}")
                 logger.debug(f"当前待处理请求: {self._result_store.get_pending_requests()}")
 
                 # 优先尝试精确匹配 echo
                 if self._result_store.add_result(message):
-                    logger.debug(f"成功匹配API响应: {message.get('echo')}")
+                    logger.debug(f"成功匹配 API 响应: {message.get('echo')}")
                     return
 
                 # 如果精确匹配失败，尝试按顺序匹配
                 elif self._result_store.add_result_by_order(message):
-                    logger.warning(f"按顺序匹配API响应: {message.get('echo')}")
+                    logger.warning(f"按顺序匹配 API 响应: {message.get('echo')}")
                     return
 
                 # 如果没有匹配的请求
                 else:
-                    logger.warning(f"收到API响应但无待处理请求: {message.get('echo')}")
+                    logger.warning(f"收到 API 响应但无待处理请求: {message.get('echo')}")
 
             # 处理事件
             if "post_type" in message:
                 try:
                     event = parse_event(message)
-                    # 使用create_task避免阻塞消息处理
+                    # 使用 create_task 避免阻塞消息处理
                     asyncio.create_task(self._handle_event(event))
                 except Exception as e:
                     logger.error(f"解析事件失败: {e}")
 
         except Exception as e:
-            logger.error(f"处理WebSocket消息失败: {e}")
+            logger.error(f"处理 WebSocket 消息失败: {e}")
 
 
 def create_connection(config: ConnectionConfig) -> WebSocketConnection:
     """创建 WebSocket 连接"""
     if not isinstance(config, WebSocketConfig):
-        raise ValueError(f"只支持WebSocket连接，不支持: {type(config)}")
+        raise ValueError(f"只支持 WebSocket 连接，不支持: {type(config)}")
 
     return WebSocketConnection(config)

@@ -118,39 +118,39 @@ def performance_monitor(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def escape_text(text: str) -> str:
-    """Escape special characters in text.
+    """转义文本中的特殊字符。
     
-    Args:
+    参数:
         text: 要转义的文本
         
-    Returns:
+    返回:
         str: 转义后的文本
     """
     return text.replace("&", "&amp;").replace("[", "&#91;").replace("]", "&#93;")
 
 
 def unescape_text(text: str) -> str:
-    """Unescape special characters in text.
+    """反转义文本中的特殊字符。
     
-    Args:
+    参数:
         text: 要反转义的文本
         
-    Returns:
+    返回:
         str: 反转义后的文本
     """
     return text.replace("&#93;", "]").replace("&#91;", "[").replace("&amp;", "&")
 
 
 def validate_qq(qq: Union[int, str]) -> str:
-    """Validate QQ number.
+    """验证QQ号码。
     
-    Args:
+    参数:
         qq: QQ号码
         
-    Returns:
+    返回:
         str: 验证后的QQ号码字符串
         
-    Raises:
+    异常:
         ValueError: 当QQ号码格式不正确时
     """
     qq_str = str(qq)
@@ -160,15 +160,15 @@ def validate_qq(qq: Union[int, str]) -> str:
 
 
 def validate_group_id(group_id: Union[int, str]) -> str:
-    """Validate group ID.
+    """验证群组ID。
     
-    Args:
+    参数:
         group_id: 群组ID
         
-    Returns:
+    返回:
         str: 验证后的群组ID字符串
         
-    Raises:
+    异常:
         ValueError: 当群组ID格式不正确时
     """
     group_id_str = str(group_id)
@@ -183,15 +183,15 @@ def retry(
     backoff: float = 2.0,
     exceptions: Tuple[Type[Exception], ...] = (Exception,)
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
-    """Retry decorator.
+    """重试装饰器。
     
-    Args:
+    参数:
         max_attempts: 最大重试次数
         delay: 初始延迟时间（秒）
         backoff: 延迟时间增长因子
         exceptions: 需要重试的异常类型元组
         
-    Returns:
+    返回:
         装饰器函数
     """
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
@@ -207,20 +207,20 @@ def retry(
                     last_exception = e
                     if attempt < max_attempts - 1:
                         logger.warning(
-                            f"Attempt {attempt + 1} failed for {func.__name__}: {e}"
+                            f"第 {attempt + 1} 次尝试失败 {func.__name__}: {e}"
                         )
                         await asyncio.sleep(current_delay)
                         current_delay *= backoff
                     else:
                         logger.error(
-                            f"All {max_attempts} attempts failed for {func.__name__}: {e}"
+                            f"所有 {max_attempts} 次尝试都失败 {func.__name__}: {e}"
                         )
 
             # 这里确保last_exception不为None
             if last_exception is not None:
                 raise last_exception
             # 理论上不应该到达这里，但为了类型检查安全
-            raise RuntimeError("Retry failed without exception")
+            raise RuntimeError("重试失败且没有异常")
 
         return wrapper
     return decorator
@@ -268,12 +268,12 @@ def rate_limit(
 
 
 def singleton(cls: type) -> Callable[..., Any]:
-    """Singleton decorator.
+    """单例装饰器。
     
-    Args:
+    参数:
         cls: 要装饰的类
         
-    Returns:
+    返回:
         装饰器函数
     """
     instances: Dict[type, Any] = {}
@@ -288,7 +288,7 @@ def singleton(cls: type) -> Callable[..., Any]:
 
 
 class AsyncLock:
-    """Async lock manager."""
+    """异步锁管理器。"""
 
     def __init__(self) -> None:
         """初始化异步锁"""
@@ -305,12 +305,12 @@ class AsyncLock:
 
 
 class Debouncer:
-    """Debounce utility."""
+    """防抖工具。"""
 
     def __init__(self, delay: float) -> None:
         """初始化防抖器
         
-        Args:
+        参数:
             delay: 延迟时间（秒）
         """
         self.delay = delay
@@ -318,9 +318,9 @@ class Debouncer:
         self._lock = asyncio.Lock()
 
     async def debounce(self, func: Callable[[], Awaitable[None]]) -> None:
-        """Debounce function call.
+        """防抖函数调用。
         
-        Args:
+        参数:
             func: 要防抖的异步函数
         """
         async with self._lock:
@@ -335,12 +335,12 @@ class Debouncer:
 
 
 class Throttler:
-    """Throttle utility."""
+    """节流工具。"""
 
     def __init__(self, delay: float) -> None:
         """初始化节流器
         
-        Args:
+        参数:
             delay: 节流延迟时间（秒）
         """
         self.delay = delay
@@ -348,12 +348,12 @@ class Throttler:
         self._lock = asyncio.Lock()
 
     async def throttle(self, func: Callable[[], Awaitable[T]]) -> T:
-        """Throttle function call.
+        """节流函数调用。
         
-        Args:
+        参数:
             func: 要节流的异步函数
             
-        Returns:
+        返回:
             T: 函数返回值
         """
         async with self._lock:
@@ -368,13 +368,13 @@ class Throttler:
 
 
 def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
-    """Deep merge two dictionaries.
+    """深度合并两个字典。
     
-    Args:
+    参数:
         dict1: 第一个字典
         dict2: 第二个字典
         
-    Returns:
+    返回:
         Dict[str, Any]: 合并后的字典
     """
     result = dict1.copy()
@@ -389,13 +389,13 @@ def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def safe_json_loads(data: str, default: Any = None) -> Any:
-    """Safely load JSON data.
+    """安全加载JSON数据。
     
-    Args:
+    参数:
         data: JSON字符串
         default: 默认值
         
-    Returns:
+    返回:
         解析后的数据或默认值
     """
     try:
@@ -405,13 +405,13 @@ def safe_json_loads(data: str, default: Any = None) -> Any:
 
 
 def safe_json_dumps(data: Any, default: str = "") -> str:
-    """Safely dump JSON data.
+    """安全序列化JSON数据。
     
-    Args:
+    参数:
         data: 要序列化的数据
         default: 默认值
         
-    Returns:
+    返回:
         str: JSON字符串或默认值
     """
     try:
@@ -421,16 +421,16 @@ def safe_json_dumps(data: Any, default: str = "") -> str:
 
 
 class EventEmitter:
-    """Simple event emitter."""
+    """简单的事件发射器。"""
 
     def __init__(self) -> None:
         """初始化事件发射器"""
         self._handlers: Dict[str, List[Callable[..., Any]]] = {}
 
     def on(self, event: str, handler: Callable[..., Any]) -> None:
-        """Register event handler.
+        """注册事件处理器。
         
-        Args:
+        参数:
             event: 事件名称
             handler: 事件处理器
         """
@@ -439,9 +439,9 @@ class EventEmitter:
         self._handlers[event].append(handler)
 
     def off(self, event: str, handler: Callable[..., Any]) -> None:
-        """Unregister event handler.
+        """注销事件处理器。
         
-        Args:
+        参数:
             event: 事件名称
             handler: 事件处理器
         """
@@ -452,9 +452,9 @@ class EventEmitter:
                 pass
 
     async def emit(self, event: str, *args: Any, **kwargs: Any) -> None:
-        """Emit event.
+        """发射事件。
         
-        Args:
+        参数:
             event: 事件名称
             *args: 位置参数
             **kwargs: 关键字参数
@@ -467,16 +467,16 @@ class EventEmitter:
                     else:
                         handler(*args, **kwargs)
                 except Exception as e:
-                    logger.error(f"Error in event handler for {event}: {e}")
+                    logger.error(f"事件处理器错误 {event}: {e}")
 
 
 class CircularBuffer:
-    """Circular buffer implementation."""
+    """循环缓冲区实现。"""
 
     def __init__(self, size: int) -> None:
         """初始化循环缓冲区
         
-        Args:
+        参数:
             size: 缓冲区大小
         """
         self.size = size
@@ -485,9 +485,9 @@ class CircularBuffer:
         self.count = 0
 
     def put(self, item: Any) -> None:
-        """Put item into buffer.
+        """将项目放入缓冲区。
         
-        Args:
+        参数:
             item: 要放入的项目
         """
         self.buffer[self.head] = item
@@ -496,9 +496,9 @@ class CircularBuffer:
             self.count += 1
 
     def get(self) -> Any:
-        """Get item from buffer.
+        """从缓冲区获取项目。
         
-        Returns:
+        返回:
             从缓冲区获取的项目，如果缓冲区为空则返回None
         """
         if self.count == 0:
@@ -511,23 +511,23 @@ class CircularBuffer:
         return item
 
     def is_empty(self) -> bool:
-        """Check if buffer is empty.
+        """检查缓冲区是否为空。
         
-        Returns:
+        返回:
             bool: 如果缓冲区为空返回True，否则返回False
         """
         return self.count == 0
 
     def is_full(self) -> bool:
-        """Check if buffer is full.
+        """检查缓冲区是否已满。
         
-        Returns:
+        返回:
             bool: 如果缓冲区已满返回True，否则返回False
         """
         return self.count == self.size
 
     def clear(self) -> None:
-        """Clear buffer."""
+        """清空缓冲区。"""
         self.buffer = [None] * self.size
         self.head = 0
         self.count = 0

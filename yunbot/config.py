@@ -1,7 +1,7 @@
-"""Configuration module for OneBot v11 client adapter.
+"""OneBot v11 客户端适配器的配置模块。
 
-This module provides Pydantic models for configuring the OneBot v11 client.
-It includes models for different connection types and main configuration.
+该模块提供 Pydantic 模型用于配置 OneBot v11 客户端。
+它包含不同连接类型的模型和主要配置。
 """
 
 from typing import Dict, List, Optional, Union, Literal
@@ -9,129 +9,129 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class ConnectionConfig(BaseModel):
-    """Base connection configuration."""
+    """基础连接配置。"""
     
-    type: str = Field(..., description="Connection type")
-    self_id: Optional[str] = Field(None, description="Bot self ID")
-    access_token: Optional[str] = Field(None, description="Access token for authentication")
-    secret: Optional[str] = Field(None, description="Secret for webhook signature")
-    timeout: float = Field(30.0, description="Request timeout in seconds")
-    retry_times: int = Field(3, description="Retry times for failed requests")
-    retry_interval: float = Field(1.0, description="Retry interval in seconds")
+    type: str = Field(..., description="连接类型")
+    self_id: Optional[str] = Field(None, description="机器人自身 ID")
+    access_token: Optional[str] = Field(None, description="用于身份验证的访问令牌")
+    secret: Optional[str] = Field(None, description="Webhook 签名密钥")
+    timeout: float = Field(30.0, description="请求超时时间（秒）")
+    retry_times: int = Field(3, description="失败请求的重试次数")
+    retry_interval: float = Field(1.0, description="重试间隔（秒）")
     
     model_config = ConfigDict(extra="ignore")
 
 
 class HttpConfig(ConnectionConfig):
-    """HTTP connection configuration.
+    """HTTP 连接配置。
     
-    Configuration for HTTP connections to the OneBot v11 API.
+    用于 OneBot v11 API 的 HTTP 连接配置。
     """
     
     type: str = "http"
-    base_url: str = Field(..., description="Base URL for HTTP API")
+    base_url: str = Field(..., description="HTTP API 的基础 URL")
     
     @field_validator("base_url")
     def validate_base_url(cls, v: str) -> str:
-        """Validate base URL format.
+        """验证基础 URL 格式。
         
         Args:
-            v: Base URL string to validate
+            v: 要验证的基础 URL 字符串
             
         Returns:
-            str: Validated and stripped base URL
+            str: 验证并去除末尾斜杠的基础 URL
             
         Raises:
-            ValueError: If URL doesn't start with http:// or https://
+            ValueError: 如果 URL 不以 http:// 或 https:// 开头
         """
         if not v.startswith(("http://", "https://")):
-            raise ValueError("base_url must start with http:// or https://")
+            raise ValueError("base_url 必须以 http:// 或 https:// 开头")
         return v.rstrip("/")
 
 
 class WebSocketConfig(ConnectionConfig):
-    """WebSocket connection configuration.
+    """WebSocket 连接配置。
     
-    Configuration for WebSocket connections to the OneBot v11 API.
+    用于 OneBot v11 API 的 WebSocket 连接配置。
     """
     
     type: str = "websocket"
     url: str = Field(..., description="WebSocket URL")
-    heartbeat_interval: Optional[float] = Field(None, description="Heartbeat interval in seconds")
+    heartbeat_interval: Optional[float] = Field(None, description="心跳间隔（秒）")
     
     @field_validator("url")
     def validate_url(cls, v: str) -> str:
-        """Validate WebSocket URL format.
+        """验证 WebSocket URL 格式。
         
         Args:
-            v: WebSocket URL string to validate
+            v: 要验证的 WebSocket URL 字符串
             
         Returns:
-            str: Validated URL
+            str: 验证后的 URL
             
         Raises:
-            ValueError: If URL doesn't start with ws:// or wss://
+            ValueError: 如果 URL 不以 ws:// 或 wss:// 开头
         """
         if not v.startswith(("ws://", "wss://")):
-            raise ValueError("url must start with ws:// or wss://")
+            raise ValueError("url 必须以 ws:// 或 wss:// 开头")
         return v
 
 
 class ReverseWebSocketConfig(ConnectionConfig):
-    """Reverse WebSocket connection configuration.
+    """反向 WebSocket 连接配置。
     
-    Configuration for reverse WebSocket connections where the client acts as a server.
+    客户端作为服务器的反向 WebSocket 连接配置。
     """
     
     type: str = "reverse_ws"
-    host: str = Field(default="127.0.0.1", description="Host to listen on")
-    port: int = Field(..., description="Port to listen on")
-    path: str = Field(default="/onebot/v11/ws", description="WebSocket path")
+    host: str = Field(default="127.0.0.1", description="监听的主机")
+    port: int = Field(..., description="监听的端口")
+    path: str = Field(default="/onebot/v11/ws", description="WebSocket 路径")
     
     @field_validator("port")
     def validate_port(cls, v: int) -> int:
-        """Validate port number range.
+        """验证端口号范围。
         
         Args:
-            v: Port number to validate
+            v: 要验证的端口号
             
         Returns:
-            int: Validated port number
+            int: 验证后的端口号
             
         Raises:
-            ValueError: If port is not between 1 and 65535
+            ValueError: 如果端口号不在 1 到 65535 之间
         """
         if not (1 <= v <= 65535):
-            raise ValueError("port must be between 1 and 65535")
+            raise ValueError("端口必须在 1 到 65535 之间")
         return v
 
 
 class WebhookConfig(ConnectionConfig):
-    """Webhook connection configuration.
+    """Webhook 连接配置。
     
-    Configuration for webhook connections where the client receives HTTP POST requests.
+    客户端接收 HTTP POST 请求的 Webhook 连接配置。
     """
     
     type: str = "webhook"
-    host: str = Field(default="127.0.0.1", description="Host to listen on")
-    port: int = Field(..., description="Port to listen on")
-    path: str = Field(default="/onebot/v11/webhook", description="Webhook path")
+    host: str = Field(default="127.0.0.1", description="监听的主机")
+    port: int = Field(..., description="监听的端口")
+    path: str = Field(default="/onebot/v11/webhook", description="Webhook 路径")
     
     @field_validator("port")
     def validate_port(cls, v: int) -> int:
-        """Validate port number range.
+        """验证端口号范围。
         
         Args:
-            v: Port number to validate
+            v: 要验证的端口号
             
         Returns:
-            int: Validated port number
+            int: 验证后的端口号
             
         Raises:
-            ValueError: If port is not between 1 and 65535
+            ValueError: 如果端口号不在 1 到 65535 之间
         """
         if not (1 <= v <= 65535):
-            raise ValueError("port must be between 1 and 65535")
+            raise ValueError("端口必须在 1 到 65535 之间")
         return v
 
 
@@ -139,48 +139,47 @@ ConnectionTypes = Union[HttpConfig, WebSocketConfig, ReverseWebSocketConfig, Web
 
 
 class Config(BaseModel):
-    """Main configuration class.
+    """主要配置类。
     
-    Main configuration class that contains all connection configurations
-    and global settings for the OneBot v11 client.
+    包含所有连接配置和 OneBot v11 客户端全局设置的主要配置类。
     """
     
     connections: List[ConnectionTypes] = Field(
         default_factory=list, 
-        description="List of connection configurations"
+        description="连接配置列表"
     )
-    api_timeout: float = Field(30.0, description="API call timeout in seconds")
-    max_concurrent_requests: int = Field(100, description="Maximum concurrent API requests")
-    enable_heartbeat: bool = Field(True, description="Enable heartbeat for WebSocket connections")
-    heartbeat_interval: float = Field(30.0, description="Default heartbeat interval in seconds")
-    reconnect_interval: float = Field(5.0, description="Reconnect interval in seconds")
-    max_reconnect_attempts: int = Field(10, description="Maximum reconnect attempts")
+    api_timeout: float = Field(30.0, description="API 调用超时时间（秒）")
+    max_concurrent_requests: int = Field(100, description="最大并发 API 请求数")
+    enable_heartbeat: bool = Field(True, description="为 WebSocket 连接启用心跳")
+    heartbeat_interval: float = Field(30.0, description="默认心跳间隔（秒）")
+    reconnect_interval: float = Field(5.0, description="重连间隔（秒）")
+    max_reconnect_attempts: int = Field(10, description="最大重连尝试次数")
     
     @field_validator("connections")
     def validate_connections(cls, v: List[ConnectionTypes]) -> List[ConnectionTypes]:
-        """Validate that at least one connection is configured.
+        """验证至少配置了一个连接。
         
         Args:
-            v: List of connection configurations
+            v: 连接配置列表
             
         Returns:
-            List[ConnectionTypes]: Validated list of connections
+            List[ConnectionTypes]: 验证后的连接列表
             
         Raises:
-            ValueError: If no connections are configured
+            ValueError: 如果未配置任何连接
         """
         if not v:
-            raise ValueError("At least one connection configuration is required")
+            raise ValueError("至少需要配置一个连接")
         return v
     
     def get_connection_by_type(self, connection_type: str) -> Optional[ConnectionTypes]:
-        """Get connection configuration by type.
+        """根据类型获取连接配置。
         
         Args:
-            connection_type: Type of connection to find
+            connection_type: 要查找的连接类型
             
         Returns:
-            Optional[ConnectionTypes]: Connection configuration if found, None otherwise
+            Optional[ConnectionTypes]: 如果找到则返回连接配置，否则返回 None
         """
         for conn in self.connections:
             if conn.type == connection_type:
@@ -188,12 +187,12 @@ class Config(BaseModel):
         return None
     
     def get_connections_by_types(self, *types: str) -> List[ConnectionTypes]:
-        """Get connection configurations by types.
+        """根据类型获取连接配置。
         
         Args:
-            *types: Connection types to filter by
+            *types: 要筛选的连接类型
             
         Returns:
-            List[ConnectionTypes]: List of matching connection configurations
+            List[ConnectionTypes]: 匹配的连接配置列表
         """
         return [conn for conn in self.connections if conn.type in types]

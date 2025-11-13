@@ -1,8 +1,7 @@
-"""Event models for OneBot v11 protocol.
+"""OneBot v11 协议的事件模型。
 
-This module provides Pydantic models for all OneBot v11 event types.
-It includes base event classes and specific event types for messages,
-notices, requests, and meta events.
+该模块为所有 OneBot v11 事件类型提供 Pydantic 模型。
+它包括基础事件类和特定的事件类型，包括消息、通知、请求和元事件。
 """
 
 from typing import Any, Dict, List, Optional, Union, Literal, TYPE_CHECKING
@@ -15,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class PostType(str, Enum):
-    """Post type enumeration."""
+    """帖子类型枚举。"""
     MESSAGE = "message"
     NOTICE = "notice"
     REQUEST = "request"
@@ -23,13 +22,13 @@ class PostType(str, Enum):
 
 
 class MessageType(str, Enum):
-    """Message type enumeration."""
+    """消息类型枚举。"""
     PRIVATE = "private"
     GROUP = "group"
 
 
 class NoticeType(str, Enum):
-    """Notice type enumeration."""
+    """通知类型枚举。"""
     GROUP_UPLOAD = "group_upload"
     GROUP_ADMIN = "group_admin"
     GROUP_DECREASE = "group_decrease"
@@ -45,58 +44,57 @@ class NoticeType(str, Enum):
 
 
 class RequestType(str, Enum):
-    """Request type enumeration."""
+    """请求类型枚举。"""
     FRIEND = "friend"
     GROUP = "group"
 
 
 class MetaEventType(str, Enum):
-    """Meta event type enumeration."""
+    """元事件类型枚举。"""
     LIFECYCLE = "lifecycle"
     HEARTBEAT = "heartbeat"
 
 
 class Sender(BaseModel):
-    """Message sender information."""
+    """消息发送者信息。"""
     
-    user_id: int = Field(..., description="User ID")
-    nickname: Optional[str] = Field(None, description="Nickname")
-    sex: Optional[str] = Field(None, description="Gender")
-    age: Optional[int] = Field(None, description="Age")
-    card: Optional[str] = Field(None, description="Group card")
-    area: Optional[str] = Field(None, description="Area")
-    level: Optional[str] = Field(None, description="Level")
-    role: Optional[str] = Field(None, description="Role in group")
-    title: Optional[str] = Field(None, description="Group title")
+    user_id: int = Field(..., description="用户 ID")
+    nickname: Optional[str] = Field(None, description="昵称")
+    sex: Optional[str] = Field(None, description="性别")
+    age: Optional[int] = Field(None, description="年龄")
+    card: Optional[str] = Field(None, description="群名片")
+    area: Optional[str] = Field(None, description="地区")
+    level: Optional[str] = Field(None, description="等级")
+    role: Optional[str] = Field(None, description="群内角色")
+    title: Optional[str] = Field(None, description="群头衔")
 
 
 class Anonymous(BaseModel):
-    """Anonymous user information."""
+    """匿名用户信息。"""
     
-    id: int = Field(..., description="Anonymous ID")
-    name: str = Field(..., description="Anonymous name")
-    flag: str = Field(..., description="Anonymous flag")
+    id: int = Field(..., description="匿名 ID")
+    name: str = Field(..., description="匿名名称")
+    flag: str = Field(..., description="匿名标识")
 
 
 class File(BaseModel):
-    """File information."""
+    """文件信息。"""
     
-    id: str = Field(..., description="File ID")
-    name: str = Field(..., description="File name")
-    size: int = Field(..., description="File size in bytes")
-    busid: int = Field(..., description="Bus ID")
+    id: str = Field(..., description="文件 ID")
+    name: str = Field(..., description="文件名")
+    size: int = Field(..., description="文件大小（字节）")
+    busid: int = Field(..., description="总线 ID")
 
 
 class Event(BaseModel):
-    """Base event class.
+    """基础事件类。
     
-    This is the base class for all OneBot v11 events. It contains common
-    fields that are present in all event types.
+    这是所有 OneBot v11 事件的基础类。它包含所有事件类型中都存在的公共字段。
     """
     
-    time: datetime = Field(default_factory=datetime.now, description="Event timestamp")
-    self_id: int = Field(..., description="Bot self ID")
-    post_type: str = Field(..., description="Post type")
+    time: datetime = Field(default_factory=datetime.now, description="事件时间戳")
+    self_id: int = Field(..., description="机器人自身 ID")
+    post_type: str = Field(..., description="帖子类型")
     
     model_config = ConfigDict(
         extra="allow",
@@ -107,185 +105,184 @@ class Event(BaseModel):
 
 
 class MessageEvent(Event):
-    """Message event.
+    """消息事件。
     
-    Base class for all message events. Contains common fields for both
-    private and group messages.
+    所有消息事件的基础类。包含私聊和群消息的公共字段。
     """
     
     post_type: str = PostType.MESSAGE
-    message_type: str = Field(..., description="Message type")
-    sub_type: str = Field(..., description="Message sub-type")
-    message_id: int = Field(..., description="Message ID")
-    user_id: int = Field(..., description="User ID")
-    message: Union[str, List[Dict[str, Any]]] = Field(..., description="Message content")
-    raw_message: Optional[str] = Field(None, description="Raw message content")
-    font: Optional[int] = Field(None, description="Font")
-    sender: Optional[Sender] = Field(None, description="Sender information")
+    message_type: str = Field(..., description="消息类型")
+    sub_type: str = Field(..., description="消息子类型")
+    message_id: int = Field(..., description="消息 ID")
+    user_id: int = Field(..., description="用户 ID")
+    message: Union[str, List[Dict[str, Any]]] = Field(..., description="消息内容")
+    raw_message: Optional[str] = Field(None, description="原始消息内容")
+    font: Optional[int] = Field(None, description="字体")
+    sender: Optional[Sender] = Field(None, description="发送者信息")
     
     @field_validator("message", mode="before")
     def parse_message(cls, v: Union[str, List[Dict[str, Any]]]) -> Union[str, List[Dict[str, Any]]]:
-        """Parse message content."""
+        """解析消息内容。"""
         return v
 
 
 class PrivateMessageEvent(MessageEvent):
-    """Private message event."""
+    """私聊消息事件。"""
     
     message_type: str = MessageType.PRIVATE
-    temp_source: Optional[int] = Field(None, description="Temporary message source")
+    temp_source: Optional[int] = Field(None, description="临时消息来源")
 
 
 class GroupMessageEvent(MessageEvent):
-    """Group message event."""
+    """群消息事件。"""
     
     message_type: str = MessageType.GROUP
-    group_id: int = Field(..., description="Group ID")
-    anonymous: Optional[Anonymous] = Field(None, description="Anonymous information")
+    group_id: int = Field(..., description="群 ID")
+    anonymous: Optional[Anonymous] = Field(None, description="匿名信息")
 
 
 class NoticeEvent(Event):
-    """Notice event."""
+    """通知事件。"""
     
     post_type: str = PostType.NOTICE
-    notice_type: str = Field(..., description="Notice type")
+    notice_type: str = Field(..., description="通知类型")
 
 
 class GroupUploadNoticeEvent(NoticeEvent):
-    """Group upload notice event."""
+    """群文件上传通知事件。"""
     
     notice_type: str = NoticeType.GROUP_UPLOAD
-    group_id: int = Field(..., description="Group ID")
-    user_id: int = Field(..., description="User ID")
-    file: File = Field(..., description="File information")
+    group_id: int = Field(..., description="群 ID")
+    user_id: int = Field(..., description="用户 ID")
+    file: File = Field(..., description="文件信息")
 
 
 class GroupAdminNoticeEvent(NoticeEvent):
-    """Group admin notice event."""
+    """群管理员变更通知事件。"""
     
     notice_type: str = NoticeType.GROUP_ADMIN
-    sub_type: str = Field(..., description="Admin change type (set/unset)")
-    group_id: int = Field(..., description="Group ID")
-    user_id: int = Field(..., description="User ID")
+    sub_type: str = Field(..., description="管理员变更类型（设置/取消）")
+    group_id: int = Field(..., description="群 ID")
+    user_id: int = Field(..., description="用户 ID")
 
 
 class GroupDecreaseNoticeEvent(NoticeEvent):
-    """Group member decrease notice event."""
+    """群成员减少通知事件。"""
     
     notice_type: str = NoticeType.GROUP_DECREASE
-    sub_type: str = Field(..., description="Decrease type (leave/kick/kick_me)")
-    group_id: int = Field(..., description="Group ID")
-    operator_id: int = Field(..., description="Operator ID")
-    user_id: int = Field(..., description="User ID")
+    sub_type: str = Field(..., description="减少类型（离开/被踢/自己被踢）")
+    group_id: int = Field(..., description="群 ID")
+    operator_id: int = Field(..., description="操作者 ID")
+    user_id: int = Field(..., description="用户 ID")
 
 
 class GroupIncreaseNoticeEvent(NoticeEvent):
-    """Group member increase notice event."""
+    """群成员增加通知事件。"""
     
     notice_type: str = NoticeType.GROUP_INCREASE
-    sub_type: str = Field(..., description="Increase type (approve/invite)")
-    group_id: int = Field(..., description="Group ID")
-    operator_id: int = Field(..., description="Operator ID")
-    user_id: int = Field(..., description="User ID")
+    sub_type: str = Field(..., description="增加类型（同意/邀请）")
+    group_id: int = Field(..., description="群 ID")
+    operator_id: int = Field(..., description="操作者 ID")
+    user_id: int = Field(..., description="用户 ID")
 
 
 class GroupBanNoticeEvent(NoticeEvent):
-    """Group ban notice event."""
+    """群禁言通知事件。"""
     
     notice_type: str = NoticeType.GROUP_BAN
-    sub_type: str = Field(..., description="Ban type (ban/lift_ban)")
-    group_id: int = Field(..., description="Group ID")
-    operator_id: int = Field(..., description="Operator ID")
-    user_id: int = Field(..., description="User ID")
-    duration: int = Field(..., description="Ban duration in seconds")
+    sub_type: str = Field(..., description="禁言类型（禁言/解除禁言）")
+    group_id: int = Field(..., description="群 ID")
+    operator_id: int = Field(..., description="操作者 ID")
+    user_id: int = Field(..., description="用户 ID")
+    duration: int = Field(..., description="禁言时长（秒）")
 
 
 class FriendAddNoticeEvent(NoticeEvent):
-    """Friend add notice event."""
+    """好友添加通知事件。"""
     
     notice_type: str = NoticeType.FRIEND_ADD
-    user_id: int = Field(..., description="User ID")
+    user_id: int = Field(..., description="用户 ID")
 
 
 class GroupRecallNoticeEvent(NoticeEvent):
-    """Group message recall notice event."""
+    """群消息撤回通知事件。"""
     
     notice_type: str = NoticeType.GROUP_RECALL
-    group_id: int = Field(..., description="Group ID")
-    user_id: int = Field(..., description="User ID")
-    operator_id: int = Field(..., description="Operator ID")
-    message_id: int = Field(..., description="Message ID")
+    group_id: int = Field(..., description="群 ID")
+    user_id: int = Field(..., description="用户 ID")
+    operator_id: int = Field(..., description="操作者 ID")
+    message_id: int = Field(..., description="消息 ID")
 
 
 class FriendRecallNoticeEvent(NoticeEvent):
-    """Friend message recall notice event."""
+    """好友消息撤回通知事件。"""
     
     notice_type: str = NoticeType.FRIEND_RECALL
-    user_id: int = Field(..., description="User ID")
-    message_id: int = Field(..., description="Message ID")
+    user_id: int = Field(..., description="用户 ID")
+    message_id: int = Field(..., description="消息 ID")
 
 
 class NotifyNoticeEvent(NoticeEvent):
-    """Notify notice event."""
+    """通知类通知事件。"""
     
     notice_type: str = NoticeType.NOTIFY
-    sub_type: str = Field(..., description="Notify sub-type")
-    group_id: int = Field(..., description="Group ID")
-    user_id: int = Field(..., description="User ID")
+    sub_type: str = Field(..., description="通知子类型")
+    group_id: int = Field(..., description="群 ID")
+    user_id: int = Field(..., description="用户 ID")
 
 
 class GroupCardNoticeEvent(NotifyNoticeEvent):
-    """Group card notice event."""
+    """群名片变更通知事件。"""
     
     sub_type: str = "group_card"
-    card_new: str = Field(..., description="New card")
-    card_old: str = Field(..., description="Old card")
+    card_new: str = Field(..., description="新名片")
+    card_old: str = Field(..., description="旧名片")
 
 
 class OfflineFileNoticeEvent(NoticeEvent):
-    """Offline file notice event."""
+    """离线文件通知事件。"""
     
     notice_type: str = NoticeType.OFFLINE_FILE
-    user_id: int = Field(..., description="User ID")
-    file: File = Field(..., description="File information")
+    user_id: int = Field(..., description="用户 ID")
+    file: File = Field(..., description="文件信息")
 
 
 class EssenceNoticeEvent(NoticeEvent):
-    """Essence message notice event."""
+    """精华消息通知事件。"""
     
     notice_type: str = NoticeType.ESSENCE
-    sub_type: str = Field(..., description="Essence type (add/delete)")
-    group_id: int = Field(..., description="Group ID")
-    sender_id: int = Field(..., description="Message sender ID")
-    operator_id: int = Field(..., description="Operator ID")
-    message_id: int = Field(..., description="Message ID")
+    sub_type: str = Field(..., description="精华类型（添加/删除）")
+    group_id: int = Field(..., description="群 ID")
+    sender_id: int = Field(..., description="消息发送者 ID")
+    operator_id: int = Field(..., description="操作者 ID")
+    message_id: int = Field(..., description="消息 ID")
 
 
 class RequestEvent(Event):
-    """Request event."""
+    """请求事件。"""
     
     post_type: str = PostType.REQUEST
-    request_type: str = Field(..., description="Request type")
+    request_type: str = Field(..., description="请求类型")
     
     async def approve(self, bot: "OneBotBot", remark: Optional[str] = None) -> Dict[str, Any]:
-        """Approve the request."""
+        """同意请求。"""
         raise NotImplementedError
     
     async def reject(self, bot: "OneBotBot", remark: Optional[str] = None) -> Dict[str, Any]:
-        """Reject the request."""
+        """拒绝请求。"""
         raise NotImplementedError
 
 
 class FriendRequestEvent(RequestEvent):
-    """Friend request event."""
+    """好友请求事件。"""
     
     request_type: str = RequestType.FRIEND
-    user_id: int = Field(..., description="User ID")
-    comment: str = Field(..., description="Request comment")
-    flag: str = Field(..., description="Request flag")
+    user_id: int = Field(..., description="用户 ID")
+    comment: str = Field(..., description="请求备注")
+    flag: str = Field(..., description="请求标识")
     
     async def approve(self, bot: "OneBotBot", remark: Optional[str] = None) -> Dict[str, Any]:
-        """Approve friend request."""
+        """同意好友请求。"""
         return await bot.set_friend_add_request(
             flag=self.flag,
             approve=True,
@@ -293,7 +290,7 @@ class FriendRequestEvent(RequestEvent):
         )
     
     async def reject(self, bot: "OneBotBot", remark: Optional[str] = None) -> Dict[str, Any]:
-        """Reject friend request."""
+        """拒绝好友请求。"""
         return await bot.set_friend_add_request(
             flag=self.flag,
             approve=False,
@@ -302,17 +299,17 @@ class FriendRequestEvent(RequestEvent):
 
 
 class GroupRequestEvent(RequestEvent):
-    """Group request event."""
+    """群请求事件。"""
     
     request_type: str = RequestType.GROUP
-    sub_type: str = Field(..., description="Request sub-type (add/invite)")
-    group_id: int = Field(..., description="Group ID")
-    user_id: int = Field(..., description="User ID")
-    comment: str = Field(..., description="Request comment")
-    flag: str = Field(..., description="Request flag")
+    sub_type: str = Field(..., description="请求子类型（添加/邀请）")
+    group_id: int = Field(..., description="群 ID")
+    user_id: int = Field(..., description="用户 ID")
+    comment: str = Field(..., description="请求备注")
+    flag: str = Field(..., description="请求标识")
     
     async def approve(self, bot: "OneBotBot", remark: Optional[str] = None) -> Dict[str, Any]:
-        """Approve group request."""
+        """同意群请求。"""
         return await bot.set_group_add_request(
             flag=self.flag,
             sub_type=self.sub_type,
@@ -321,7 +318,7 @@ class GroupRequestEvent(RequestEvent):
         )
     
     async def reject(self, bot: "OneBotBot", remark: Optional[str] = None) -> Dict[str, Any]:
-        """Reject group request."""
+        """拒绝群请求。"""
         return await bot.set_group_add_request(
             flag=self.flag,
             sub_type=self.sub_type,
@@ -331,29 +328,29 @@ class GroupRequestEvent(RequestEvent):
 
 
 class MetaEvent(Event):
-    """Meta event."""
+    """元事件。"""
     
     post_type: str = PostType.META_EVENT
-    meta_event_type: str = Field(..., description="Meta event type")
+    meta_event_type: str = Field(..., description="元事件类型")
 
 
 class LifecycleMetaEvent(MetaEvent):
-    """Lifecycle meta event."""
+    """生命周期元事件。"""
     
     meta_event_type: str = MetaEventType.LIFECYCLE
-    sub_type: str = Field(..., description="Lifecycle sub-type (enable/disable/connect)")
+    sub_type: str = Field(..., description="生命周期子类型（启用/禁用/连接）")
 
 
 class HeartbeatMetaEvent(MetaEvent):
-    """Heartbeat meta event."""
+    """心跳元事件。"""
     
     meta_event_type: str = MetaEventType.HEARTBEAT
-    status: Dict[str, Any] = Field(..., description="Bot status")
-    interval: int = Field(..., description="Heartbeat interval in milliseconds")
+    status: Dict[str, Any] = Field(..., description="机器人状态")
+    interval: int = Field(..., description="心跳间隔（毫秒）")
 
 
 def parse_event(data: Dict[str, Any]) -> Event:
-    """Parse event from raw data."""
+    """从原始数据解析事件。"""
     post_type = data.get("post_type")
     
     if post_type == PostType.MESSAGE:

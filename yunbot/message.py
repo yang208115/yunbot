@@ -1,4 +1,4 @@
-"""Message models for OneBot v11 protocol."""
+"""OneBot v11 协议的消息模型。"""
 
 from typing import Any, Dict, List, Optional, Union, Iterator
 import re
@@ -6,40 +6,40 @@ from pydantic import BaseModel, Field, RootModel
 
 
 class MessageSegment(BaseModel):
-    """Message segment model for OneBot v11 protocol.
+    """OneBot v11 协议的消息段模型。
     
-    Represents a single segment of a message, which can be text, image, or other types.
-    Each segment has a type and associated data.
+    表示消息的单个段，可以是文本、图像或其他类型。
+    每个段都有一个类型和相关数据。
     
-    Attributes:
-        type: Segment type (e.g., "text", "image", "at")
-        data: Segment data containing type-specific parameters
+    属性:
+        type: 消息段类型 (例如 "text", "image", "at")
+        data: 消息段数据，包含类型特定的参数
     """
     
-    type: str = Field(..., description="Segment type")
-    data: Dict[str, Any] = Field(default_factory=dict, description="Segment data")
+    type: str = Field(..., description="消息段类型")
+    data: Dict[str, Any] = Field(default_factory=dict, description="消息段数据")
     
     @classmethod
     def text(cls, text: str) -> "MessageSegment":
-        """Create a text segment.
+        """创建一个文本段。
         
-        Args:
-            text: The text content
+        参数:
+            text: 文本内容
             
-        Returns:
-            MessageSegment: A text message segment
+        返回:
+            MessageSegment: 文本消息段
         """
         return cls(type="text", data={"text": text})
     
     @classmethod
     def face(cls, id: int) -> "MessageSegment":
-        """Create a face segment.
+        """创建一个表情段。
         
-        Args:
-            id: Face ID
+        参数:
+            id: 表情 ID
             
-        Returns:
-            MessageSegment: A face message segment
+        返回:
+            MessageSegment: 表情消息段
         """
         return cls(type="face", data={"id": id})
     
@@ -53,18 +53,18 @@ class MessageSegment(BaseModel):
         proxy: Optional[bool] = None,
         timeout: Optional[int] = None,
     ) -> "MessageSegment":
-        """Create an image segment.
+        """创建一个图片段。
         
-        Args:
-            file: Image file path or URL
-            type: Image type (optional)
-            url: Image URL (optional)
-            cache: Whether to cache the image (optional)
-            proxy: Whether to use proxy (optional)
-            timeout: Timeout in seconds (optional)
+        参数:
+            file: 图片文件路径或 URL
+            type: 图片类型 (可选)
+            url: 图片 URL (可选)
+            cache: 是否缓存图片 (可选)
+            proxy: 是否使用代理 (可选)
+            timeout: 超时时间（秒） (可选)
             
-        Returns:
-            MessageSegment: An image message segment
+        返回:
+            MessageSegment: 图片消息段
         """
         data: Dict[str, Any] = {"file": file}
         if type is not None:
@@ -88,17 +88,17 @@ class MessageSegment(BaseModel):
         proxy: Optional[bool] = None,
         timeout: Optional[int] = None,
     ) -> "MessageSegment":
-        """Create a record segment (voice message).
+        """创建一个录音段（语音消息）。
         
-        Args:
-            file: Audio file path or URL
-            magic: Whether to use magic conversion (optional)
-            cache: Whether to cache the audio (optional)
-            proxy: Whether to use proxy (optional)
-            timeout: Timeout in seconds (optional)
+        参数:
+            file: 音频文件路径或 URL
+            magic: 是否使用魔法转换 (可选)
+            cache: 是否缓存音频 (可选)
+            proxy: 是否使用代理 (可选)
+            timeout: 超时时间（秒） (可选)
             
-        Returns:
-            MessageSegment: A record message segment
+        返回:
+            MessageSegment: 录音消息段
         """
         data: Dict[str, Any] = {"file": file}
         if magic is not None:
@@ -119,16 +119,16 @@ class MessageSegment(BaseModel):
         proxy: Optional[bool] = None,
         timeout: Optional[int] = None,
     ) -> "MessageSegment":
-        """Create a video segment.
+        """创建一个视频段。
         
-        Args:
-            file: Video file path or URL
-            cache: Whether to cache the video (optional)
-            proxy: Whether to use proxy (optional)
-            timeout: Timeout in seconds (optional)
+        参数:
+            file: 视频文件路径或 URL
+            cache: 是否缓存视频 (可选)
+            proxy: 是否使用代理 (可选)
+            timeout: 超时时间（秒） (可选)
             
-        Returns:
-            MessageSegment: A video message segment
+        返回:
+            MessageSegment: 视频消息段
         """
         data: Dict[str, Any] = {"file": file}
         if cache is not None:
@@ -141,25 +141,25 @@ class MessageSegment(BaseModel):
     
     @classmethod
     def at(cls, qq: Union[int, str]) -> "MessageSegment":
-        """Create an @ segment.
+        """创建一个 @ 段。
         
-        Args:
-            qq: QQ number to @
+        参数:
+            qq: 要 @ 的 QQ 号
             
-        Returns:
-            MessageSegment: An @ message segment
+        返回:
+            MessageSegment: @ 消息段
         """
         return cls(type="at", data={"qq": str(qq)})
     
     @classmethod
     def at_all(cls, channel: Optional[str] = None) -> "MessageSegment":
-        """Create an @all segment.
+        """创建一个 @全体成员 段。
         
-        Args:
-            channel: Channel name (optional)
+        参数:
+            channel: 频道名称 (可选)
             
-        Returns:
-            MessageSegment: An @all message segment
+        返回:
+            MessageSegment: @全体成员 消息段
         """
         data = {"qq": "all"}
         if channel is not None:
@@ -168,13 +168,13 @@ class MessageSegment(BaseModel):
     
     @classmethod
     def rps(cls, type_: Optional[str] = None) -> "MessageSegment":
-        """Create a rock-paper-scissors segment.
+        """创建一个猜拳段。
         
-        Args:
-            type_: RPS type (optional)
+        参数:
+            type_: 猜拳类型 (可选)
             
-        Returns:
-            MessageSegment: A rock-paper-scissors message segment
+        返回:
+            MessageSegment: 猜拳消息段
         """
         data = {}
         if type_ is not None:
@@ -183,13 +183,13 @@ class MessageSegment(BaseModel):
     
     @classmethod
     def dice(cls, type_: Optional[str] = None) -> "MessageSegment":
-        """Create a dice segment.
+        """创建一个骰子段。
         
-        Args:
-            type_: Dice type (optional)
+        参数:
+            type_: 骰子类型 (可选)
             
-        Returns:
-            MessageSegment: A dice message segment
+        返回:
+            MessageSegment: 骰子消息段
         """
         data = {}
         if type_ is not None:
@@ -198,35 +198,35 @@ class MessageSegment(BaseModel):
     
     @classmethod
     def shake(cls) -> "MessageSegment":
-        """Create a shake segment (window shake).
+        """创建一个窗口抖动段。
         
-        Returns:
-            MessageSegment: A shake message segment
+        返回:
+            MessageSegment: 窗口抖动消息段
         """
         return cls(type="shake", data={})
     
     @classmethod
     def poke(cls, type_: str, id_: str) -> "MessageSegment":
-        """Create a poke segment.
+        """创建一个戳一戳段。
         
-        Args:
-            type_: Poke type
-            id_: Poke ID
+        参数:
+            type_: 戳一戳类型
+            id_: 戳一戳 ID
             
-        Returns:
-            MessageSegment: A poke message segment
+        返回:
+            MessageSegment: 戳一戳消息段
         """
         return cls(type="poke", data={"type": type_, "id": id_})
     
     @classmethod
     def anonymous(cls, ignore: Optional[bool] = None) -> "MessageSegment":
-        """Create an anonymous segment.
+        """创建一个匿名段。
         
-        Args:
-            ignore: Whether to ignore anonymous check (optional)
+        参数:
+            ignore: 是否忽略匿名检查 (可选)
             
-        Returns:
-            MessageSegment: An anonymous message segment
+        返回:
+            MessageSegment: 匿名消息段
         """
         data = {}
         if ignore is not None:
@@ -241,16 +241,16 @@ class MessageSegment(BaseModel):
         content: Optional[str] = None,
         image: Optional[str] = None,
     ) -> "MessageSegment":
-        """Create a share segment.
+        """创建一个分享段。
         
-        Args:
-            url: URL to share
-            title: Share title
-            content: Share content (optional)
-            image: Image URL (optional)
+        参数:
+            url: 分享的 URL
+            title: 分享标题
+            content: 分享内容 (可选)
+            image: 图片 URL (可选)
             
-        Returns:
-            MessageSegment: A share message segment
+        返回:
+            MessageSegment: 分享消息段
         """
         data = {"url": url, "title": title}
         if content is not None:
@@ -265,14 +265,14 @@ class MessageSegment(BaseModel):
         type_: str, 
         id_: Union[int, str]
     ) -> "MessageSegment":
-        """Create a contact segment.
+        """创建一个联系人段。
         
-        Args:
-            type_: Contact type
-            id_: Contact ID
+        参数:
+            type_: 联系人类型
+            id_: 联系人 ID
             
-        Returns:
-            MessageSegment: A contact message segment
+        返回:
+            MessageSegment: 联系人消息段
         """
         return cls(type="contact", data={"type": type_, "id": str(id_)})
     
@@ -284,16 +284,16 @@ class MessageSegment(BaseModel):
         title: Optional[str] = None,
         content: Optional[str] = None,
     ) -> "MessageSegment":
-        """Create a location segment.
+        """创建一个位置段。
         
-        Args:
-            lat: Latitude
-            lon: Longitude
-            title: Location title (optional)
-            content: Location content (optional)
+        参数:
+            lat: 纬度
+            lon: 经度
+            title: 位置标题 (可选)
+            content: 位置内容 (可选)
             
-        Returns:
-            MessageSegment: A location message segment
+        返回:
+            MessageSegment: 位置消息段
         """
         data: Dict[str, Any] = {"lat": lat, "lon": lon}
         if title is not None:
@@ -313,19 +313,19 @@ class MessageSegment(BaseModel):
         content: Optional[str] = None,
         image: Optional[str] = None,
     ) -> "MessageSegment":
-        """Create a music segment.
+        """创建一个音乐段。
         
-        Args:
-            type_: Music type
-            id_: Music ID (optional)
-            url: Music URL (optional)
-            audio: Audio URL (optional)
-            title: Music title (optional)
-            content: Music content (optional)
-            image: Image URL (optional)
+        参数:
+            type_: 音乐类型
+            id_: 音乐 ID (可选)
+            url: 音乐 URL (可选)
+            audio: 音频 URL (可选)
+            title: 音乐标题 (可选)
+            content: 音乐内容 (可选)
+            image: 图片 URL (可选)
             
-        Returns:
-            MessageSegment: A music message segment
+        返回:
+            MessageSegment: 音乐消息段
         """
         data: Dict[str, Any] = {"type": type_}
         if id_ is not None:
@@ -344,25 +344,25 @@ class MessageSegment(BaseModel):
     
     @classmethod
     def reply(cls, id_: int) -> "MessageSegment":
-        """Create a reply segment.
+        """创建一个回复段。
         
-        Args:
-            id_: Message ID to reply to
+        参数:
+            id_: 要回复的消息 ID
             
-        Returns:
-            MessageSegment: A reply message segment
+        返回:
+            MessageSegment: 回复消息段
         """
         return cls(type="reply", data={"id": id_})
     
     @classmethod
     def forward(cls, id_: str) -> "MessageSegment":
-        """Create a forward segment.
+        """创建一个转发段。
         
-        Args:
-            id_: Forward ID
+        参数:
+            id_: 转发 ID
             
-        Returns:
-            MessageSegment: A forward message segment
+        返回:
+            MessageSegment: 转发消息段
         """
         return cls(type="forward", data={"id": id_})
     
@@ -375,17 +375,17 @@ class MessageSegment(BaseModel):
         content: Optional[Union[str, List["MessageSegment"]]] = None,
         seq: Optional[str] = None,
     ) -> "MessageSegment":
-        """Create a node segment.
+        """创建一个节点段。
         
-        Args:
-            id_: Node ID (optional)
-            name: Node name (optional)
-            uin: User ID (optional)
-            content: Node content (optional)
-            seq: Sequence (optional)
+        参数:
+            id_: 节点 ID (可选)
+            name: 节点名称 (可选)
+            uin: 用户 ID (可选)
+            content: 节点内容 (可选)
+            seq: 序列 (可选)
             
-        Returns:
-            MessageSegment: A node message segment
+        返回:
+            MessageSegment: 节点消息段
         """
         data = {}
         if id_ is not None:
@@ -405,44 +405,44 @@ class MessageSegment(BaseModel):
     
     @classmethod
     def xml(cls, data: str) -> "MessageSegment":
-        """Create an XML segment.
+        """创建一个 XML 段。
         
-        Args:
-            data: XML data string
+        参数:
+            data: XML 数据字符串
             
-        Returns:
-            MessageSegment: An XML message segment
+        返回:
+            MessageSegment: XML 消息段
         """
         return cls(type="xml", data={"data": data})
     
     @classmethod
     def json_data(cls, data: str) -> "MessageSegment":
-        """Create a JSON segment.
+        """创建一个 JSON 段。
         
-        Args:
-            data: JSON data string
+        参数:
+            data: JSON 数据字符串
             
-        Returns:
-            MessageSegment: A JSON message segment
+        返回:
+            MessageSegment: JSON 消息段
         """
         return cls(type="json", data={"data": data})
 
 
 class Message(RootModel[List[MessageSegment]]):
-    """Message model for OneBot v11 protocol.
+    """OneBot v11 协议的消息模型。
     
-    Represents a complete message composed of multiple segments.
-    Provides methods for manipulating and processing message segments.
+    表示由多个段组成的完整消息。
+    提供操作和处理消息段的方法。
     """
     
     def __init__(self, message: Union[str, List[MessageSegment], List[Dict[str, Any]]]) -> None:
-        """Initialize message.
+        """初始化消息。
         
-        Args:
-            message: Message content, can be string, list of segments, or list of dictionaries
+        参数:
+            message: 消息内容，可以是字符串、段列表或字典列表
             
-        Raises:
-            ValueError: When message format is invalid
+        异常:
+            ValueError: 当消息格式无效时
         """
         segments: List[MessageSegment]
         if isinstance(message, str):
@@ -464,145 +464,145 @@ class Message(RootModel[List[MessageSegment]]):
         super().__init__(root=segments)
     
     def __str__(self) -> str:
-        """Convert message to string representation.
+        """将消息转换为字符串表示。
         
-        Returns:
-            str: Plain text representation of the message
+        返回:
+            str: 消息的纯文本表示
         """
         return self.extract_plain_text()
     
     def __len__(self) -> int:
-        """Get message length (number of segments).
+        """获取消息长度（段数）。
         
-        Returns:
-            int: Number of segments in the message
+        返回:
+            int: 消息中的段数
         """
         return len(self.root)
     
     def __getitem__(self, index: int) -> MessageSegment:
-        """Get segment by index.
+        """按索引获取段。
         
-        Args:
-            index: Segment index
+        参数:
+            index: 段索引
             
-        Returns:
-            MessageSegment: Message segment at the specified index
+        返回:
+            MessageSegment: 指定索引处的消息段
         """
         return self.root[index]
     
     def __setitem__(self, index: int, value: Union[MessageSegment, Dict[str, Any]]) -> None:
-        """Set segment by index.
+        """按索引设置段。
         
-        Args:
-            index: Segment index
-            value: New message segment or dictionary representation
+        参数:
+            index: 段索引
+            value: 新的消息段或字典表示
         """
         if isinstance(value, dict):
             value = MessageSegment.model_validate(value)
         self.root[index] = value
     
     def __delitem__(self, index: int) -> None:
-        """Delete segment by index.
+        """按索引删除段。
         
-        Args:
-            index: Segment index to delete
+        参数:
+            index: 要删除的段索引
         """
         del self.root[index]
     
     def segments(self) -> Iterator[MessageSegment]:
-        """Iterate over segments.
+        """遍历段。
         
-        Returns:
-            Iterator[MessageSegment]: Iterator over message segments
+        返回:
+            Iterator[MessageSegment]: 消息段的迭代器
         """
         return iter(self.root)
     
     def __contains__(self, item: str) -> bool:
-        """Check if message contains text.
+        """检查消息是否包含文本。
         
-        Args:
-            item: Text to search for
+        参数:
+            item: 要搜索的文本
             
-        Returns:
-            bool: True if message contains the text, False otherwise
+        返回:
+            bool: 如果消息包含文本则返回 True，否则返回 False
         """
         return item in self.extract_plain_text()
     
     def append(self, segment: MessageSegment) -> None:
-        """Append a segment to the message.
+        """向消息追加一个段。
         
-        Args:
-            segment: Message segment to append
+        参数:
+            segment: 要追加的消息段
         """
         self.root.append(segment)
     
     def extend(self, segments: List[MessageSegment]) -> None:
-        """Extend message with multiple segments.
+        """用多个段扩展消息。
         
-        Args:
-            segments: List of message segments to extend with
+        参数:
+            segments: 要扩展的消息段列表
         """
         self.root.extend(segments)
     
     def insert(self, index: int, segment: MessageSegment) -> None:
-        """Insert a segment at specific index.
+        """在指定索引处插入一个段。
         
-        Args:
-            index: Position to insert at
-            segment: Message segment to insert
+        参数:
+            index: 要插入的位置
+            segment: 要插入的消息段
         """
         self.root.insert(index, segment)
     
     def remove(self, segment: MessageSegment) -> None:
-        """Remove a segment from the message.
+        """从消息中删除一个段。
         
-        Args:
-            segment: Message segment to remove
+        参数:
+            segment: 要删除的消息段
         """
         self.root.remove(segment)
     
     def pop(self, index: int = -1) -> MessageSegment:
-        """Pop a segment from the message.
+        """从消息中弹出一个段。
         
-        Args:
-            index: Index of segment to pop (default: last segment)
+        参数:
+            index: 要弹出的段索引（默认：最后一个段）
             
-        Returns:
-            MessageSegment: Popped message segment
+        返回:
+            MessageSegment: 弹出的消息段
         """
         return self.root.pop(index)
     
     def clear(self) -> None:
-        """Clear all segments from the message."""
+        """清除消息中的所有段。"""
         self.root.clear()
     
     def index(self, segment: MessageSegment) -> int:
-        """Get index of a segment.
+        """获取段的索引。
         
-        Args:
-            segment: Message segment to find
+        参数:
+            segment: 要查找的消息段
             
-        Returns:
-            int: Index of the segment
+        返回:
+            int: 段的索引
         """
         return self.root.index(segment)
     
     def count(self, segment: MessageSegment) -> int:
-        """Count occurrences of a segment.
+        """计算段的出现次数。
         
-        Args:
-            segment: Message segment to count
+        参数:
+            segment: 要计数的消息段
             
-        Returns:
-            int: Number of occurrences
+        返回:
+            int: 出现次数
         """
         return self.root.count(segment)
     
     def extract_plain_text(self) -> str:
-        """Extract plain text from message.
+        """从消息中提取纯文本。
         
-        Returns:
-            str: Plain text content of all text segments
+        返回:
+            str: 所有文本段的纯文本内容
         """
         text = ""
         for segment in self.root:
@@ -611,65 +611,65 @@ class Message(RootModel[List[MessageSegment]]):
         return text
     
     def get_segments(self, segment_type: str) -> List[MessageSegment]:
-        """Get segments by type.
+        """按类型获取段。
         
-        Args:
-            segment_type: Type of segments to retrieve
+        参数:
+            segment_type: 要检索的段类型
             
-        Returns:
-            List[MessageSegment]: List of segments of the specified type
+        返回:
+            List[MessageSegment]: 指定类型的段列表
         """
         return [seg for seg in self.root if seg.type == segment_type]
     
     def has_segment(self, segment_type: str) -> bool:
-        """Check if message has segment of specific type.
+        """检查消息是否包含特定类型的段。
         
-        Args:
-            segment_type: Segment type to check for
+        参数:
+            segment_type: 要检查的段类型
             
-        Returns:
-            bool: True if message contains segments of the specified type, False otherwise
+        返回:
+            bool: 如果消息包含指定类型的段则返回 True，否则返回 False
         """
         return any(seg.type == segment_type for seg in self.root)
     
     def is_text_only(self) -> bool:
-        """Check if message contains only text segments.
+        """检查消息是否仅包含文本段。
         
-        Returns:
-            bool: True if all segments are text segments, False otherwise
+        返回:
+            bool: 如果所有段都是文本段则返回 True，否则返回 False
         """
         return all(seg.type == "text" for seg in self.root)
     
     def to_dict(self) -> List[Dict[str, Any]]:
-        """Convert message to dictionary representation.
+        """将消息转换为字典表示。
         
-        Returns:
-            List[Dict[str, Any]]: List of segment dictionaries
+        返回:
+            List[Dict[str, Any]]: 段字典的列表
         """
         return [seg.model_dump() for seg in self.root]
     
     @classmethod
     def from_dict(cls, data: List[Dict[str, Any]]) -> "Message":
-        """Create message from dictionary representation.
+        """从字典表示创建消息。
         
-        Args:
-            data: List of segment dictionaries
+        参数:
+            data: 段字典的列表
             
-        Returns:
-            Message: New message instance
+        返回:
+            Message: 新的消息实例
         """
         segments = [MessageSegment.model_validate(seg) for seg in data]
         return cls(segments)
     
     @classmethod
     def from_str(cls, text: str) -> "Message":
-        """Create message from string.
+        """从字符串创建消息。
         
-        Args:
-            text: String representation of the message
+        参数:
+            text: 消息的字符串表示
             
-        Returns:
-            Message: New message instance
+        返回:
+            Message: 新的消息实例
         """
         return cls(text)
 
@@ -677,10 +677,10 @@ class Message(RootModel[List[MessageSegment]]):
     def _parse_cq_code(message: str) -> List[MessageSegment]:
         """解析包含CQ码的消息字符串
         
-        Args:
+        参数:
             message: 包含CQ码的消息字符串
             
-        Returns:
+        返回:
             List[MessageSegment]: 解析后的消息段列表
         """
         segments = []

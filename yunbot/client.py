@@ -1,8 +1,7 @@
-"""High-level client interface for OneBot v11 adapter.
+"""OneBot v11 适配器的高级客户端接口。
 
-This module provides a high-level client interface that simplifies the usage
-of the OneBot v11 adapter. It handles configuration, connection management,
-and event dispatching.
+该模块提供了一个高级客户端接口，简化了 OneBot v11 适配器的使用。
+它处理配置、连接管理和事件分发。
 """
 
 import asyncio
@@ -20,13 +19,13 @@ from .logger import default_logger as logger
 
 
 class OneBotClient:
-    """High-level OneBot v11 client interface."""
+    """OneBot v11 高级客户端接口。"""
     
     def __init__(self, config: Optional[Config] = None):
-        """Initialize client.
+        """初始化客户端。
         
         Args:
-            config: Configuration object for the client
+            config: 客户端的配置对象
         """
         self.config = config
         self.adapter: Optional[OneBotAdapter] = None
@@ -34,42 +33,42 @@ class OneBotClient:
         self._running = False
     
     async def start(self, config: Optional[Config] = None) -> None:
-        """Start the client.
+        """启动客户端。
         
-        This method initializes the adapter, registers event handlers,
-        and starts the connection processes.
+        该方法初始化适配器，注册事件处理程序，
+        并启动连接进程。
         
         Args:
-            config: Optional configuration to use instead of the one provided in __init__
+            config: 可选配置，用于替代 __init__ 中提供的配置
         
         Raises:
-            OneBotException: If no configuration is provided
+            OneBotException: 如果未提供配置则抛出
         """
         if self._running:
-            logger.warning("Client is already running")
+            logger.warning("客户端已在运行")
             return
         
         if config:
             self.config = config
         
         if not self.config:
-            raise OneBotException("No configuration provided")
+            raise OneBotException("未提供配置")
         
         self.adapter = OneBotAdapter(self.config)
 
-        # Register unified event handler that will dispatch to user handlers
+        # 注册统一事件处理程序，将分发给用户处理程序
         self.adapter.on_event(self._handle_and_dispatch_event)
         
-        # Start adapter
+        # 启动适配器
         await self.adapter.start()
         self._running = True
         
-        logger.info("OneBot client started")
+        logger.info("OneBot 客户端已启动")
     
     async def stop(self) -> None:
-        """Stop the client.
+        """停止客户端。
         
-        This method gracefully shuts down the adapter and cleans up resources.
+        该方法优雅地关闭适配器并清理资源。
         """
         if not self._running:
             return
@@ -79,43 +78,43 @@ class OneBotClient:
         if self.adapter:
             await self.adapter.stop()
         
-        logger.info("OneBot client stopped")
+        logger.info("OneBot 客户端已停止")
     
     async def __aenter__(self):
-        """Async context manager entry."""
+        """异步上下文管理器入口。"""
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
+        """异步上下文管理器出口。"""
         await self.stop()
     
-    # Event handlers
+    # 事件处理程序
     async def _handle_event(self, event: Event) -> None:
-        """Handle generic event."""
+        """处理通用事件。"""
         await self._call_handlers("event", event)
     
     async def _handle_message(self, event: Event) -> None:
-        """Handle message event."""
+        """处理消息事件。"""
         await self._call_handlers("message", event)
     
     async def _handle_notice(self, event: Event) -> None:
-        """Handle notice event."""
+        """处理通知事件。"""
         await self._call_handlers("notice", event)
     
     async def _handle_request(self, event: Event) -> None:
-        """Handle request event."""
+        """处理请求事件。"""
         await self._call_handlers("request", event)
     
     async def _handle_meta_event(self, event: Event) -> None:
-        """Handle meta event."""
+        """处理元事件。"""
         await self._call_handlers("meta_event", event)
 
     async def _handle_and_dispatch_event(self, event: Event) -> None:
-        """Handle event and dispatch to appropriate handlers."""
-        # Call generic event handlers
+        """处理事件并分发给适当的处理程序。"""
+        # 调用通用事件处理程序
         await self._call_handlers("event", event)
 
-        # Dispatch to specific event type handlers
+        # 分发给特定事件类型处理程序
         if hasattr(event, 'post_type'):
             post_type = event.post_type
             if post_type == "message":
@@ -127,11 +126,11 @@ class OneBotClient:
             elif post_type == "meta_event":
                 await self._call_handlers("meta_event", event)
         
-        # Handle matcher events
+        # 处理匹配器事件
         await handle_event(event)
     
     async def _call_handlers(self, event_type: str, event: Event) -> None:
-        """Call registered event handlers."""
+        """调用已注册的事件处理程序。"""
         handlers = self._event_handlers.get(event_type, [])
         for handler in handlers:
             try:
@@ -140,59 +139,59 @@ class OneBotClient:
                 else:
                     handler(event)
             except Exception as e:
-                logger.error(f"Error in {event_type} handler: {e}")
+                logger.error(f"{event_type} 处理程序中出错: {e}")
     
-    # Event registration methods
+    # 事件注册方法
     def on_event(self, handler: Callable[[Event], Awaitable[None]]) -> None:
-        """Register generic event handler."""
+        """注册通用事件处理程序。"""
         self._add_handler("event", handler)
     
     def on_message(self, handler: Callable[[MessageEvent], Awaitable[None]]) -> None:
-        """Register message event handler."""
+        """注册消息事件处理程序。"""
         self._add_handler("message", handler)
     
     def on_notice(self, handler: Callable[[Event], Awaitable[None]]) -> None:
-        """Register notice event handler."""
+        """注册通知事件处理程序。"""
         self._add_handler("notice", handler)
     
     def on_request(self, handler: Callable[[Event], Awaitable[None]]) -> None:
-        """Register request event handler."""
+        """注册请求事件处理程序。"""
         self._add_handler("request", handler)
     
     def on_meta_event(self, handler: Callable[[Event], Awaitable[None]]) -> None:
-        """Register meta event handler."""
+        """注册元事件处理程序。"""
         self._add_handler("meta_event", handler)
     
     def _add_handler(self, event_type: str, handler: Callable) -> None:
-        """Add event handler."""
+        """添加事件处理程序。"""
         if event_type not in self._event_handlers:
             self._event_handlers[event_type] = []
         self._event_handlers[event_type].append(handler)
     
-    # Bot methods
+    # 机器人方法
     def get_bot(self, self_id: Optional[int] = None) -> Optional[OneBotBot]:
-        """Get bot instance."""
+        """获取机器人实例。"""
         if not self.adapter:
             return None
         return self.adapter.get_bot(self_id)
     
     def get_bots(self) -> List[OneBotBot]:
-        """Get all bot instances."""
+        """获取所有机器人实例。"""
         if not self.adapter:
             return []
         return self.adapter.get_bots()
     
-    # Convenience methods
+    # 便利方法
     async def send_private_msg(
         self,
         user_id: int,
         message: Union[str, Message, List[MessageSegment]],
         bot_id: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Send private message."""
+        """发送私聊消息。"""
         bot = self.get_bot(bot_id)
         if not bot:
-            raise OneBotException("No available bot")
+            raise OneBotException("无可用机器人")
         return await bot.send_private_msg(user_id, message)
     
     async def send_group_msg(
@@ -201,10 +200,10 @@ class OneBotClient:
         message: Union[str, Message, List[MessageSegment]],
         bot_id: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Send group message."""
+        """发送群消息。"""
         bot = self.get_bot(bot_id)
         if not bot:
-            raise OneBotException("No available bot")
+            raise OneBotException("无可用机器人")
         return await bot.send_group_msg(group_id, message)
     
     async def send_msg(
@@ -215,7 +214,7 @@ class OneBotClient:
         group_id: Optional[int] = None,
         bot_id: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Send message."""
+        """发送消息。"""
         bot = self.get_bot(bot_id)
         if not bot:
             raise OneBotException("No available bot")
@@ -226,10 +225,10 @@ class OneBotClient:
             message=message
         )
     
-    # Utility methods
+    # 实用方法
     @classmethod
     def from_config_file(cls, config_path: str) -> "OneBotClient":
-        """Create client from configuration file."""
+        """从配置文件创建客户端。"""
         import json
         import yaml
         
@@ -239,7 +238,7 @@ class OneBotClient:
             elif config_path.endswith((".yaml", ".yml")):
                 data = yaml.safe_load(f)
             else:
-                raise OneBotException("Unsupported config file format")
+                raise OneBotException("不支持的配置文件格式")
         
         config = Config.model_validate(data)
         return cls(config)
@@ -250,7 +249,7 @@ class OneBotClient:
         connection_type: str,
         **kwargs
     ) -> "OneBotClient":
-        """Create simple client with single connection."""
+        """创建具有单个连接的简单客户端。"""
         from .config import (
             HttpConfig,
             WebSocketConfig,
@@ -270,7 +269,7 @@ class OneBotClient:
         elif connection_type == "webhook":
             config = WebhookConfig(**kwargs)
         else:
-            raise OneBotException(f"Unknown connection type: {connection_type}")
+            raise OneBotException(f"未知连接类型: {connection_type}")
         
         return cls(Config(
             connections=[config],
@@ -283,63 +282,63 @@ class OneBotClient:
         ))
     
     async def run_forever(self) -> None:
-        """Run client forever."""
+        """永久运行客户端。"""
         try:
             while self._running:
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
             pass
         except KeyboardInterrupt:
-            logger.info("Received interrupt signal")
+            logger.info("收到中断信号")
         finally:
             await self.stop()
     
     @property
     def is_running(self) -> bool:
-        """Check if client is running."""
+        """检查客户端是否正在运行。"""
         return self._running
 
     async def call_api(self, action: str, **params: Any) -> Dict[str, Any]:
-        """Call OneBot API through bot.
+        """通过机器人调用 OneBot API。
         
         Args:
-            action: The API action to call
-            **params: Parameters for the API call
+            action: 要调用的 API 操作
+            **params: API 调用的参数
         
         Returns:
-            Dict containing the API response data
+            包含 API 响应数据的字典
         
         Raises:
-            OneBotException: If no bot is available
+            OneBotException: 如果无可用机器人则抛出
         """
         bot = self.get_bot()
         if not bot:
-            raise OneBotException("No available bot")
+            raise OneBotException("无可用机器人")
         return await bot.call_api(action, **params)
     
     def __getattr__(self, name: str) -> Any:
-        """Allow calling API methods dynamically.
+        """允许动态调用 API 方法。
         
-        This method allows calling API methods directly on the client instance
-        without explicitly defining each method. For example:
+        该方法允许直接在客户端实例上调用 API 方法，
+        而无需显式定义每个方法。例如：
         
-        # Instead of:
+        # 代替：
         # await client.call_api("send_private_msg", user_id=123456, message="Hello")
         
-        # You can use:
+        # 您可以使用：
         # await client.send_private_msg(user_id=123456, message="Hello")
         
         Args:
-            name: The name of the attribute being accessed
+            name: 正在访问的属性名称
             
         Returns:
-            A partial function that will call the API when invoked
+            一个在调用时将调用 API 的偏函数
             
         Raises:
-            AttributeError: If the name is a special attribute (starts and ends with __)
+            AttributeError: 如果名称是特殊属性（以 __ 开头和结尾）则抛出
         """
         if name.startswith("__") and name.endswith("__"):
             raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{name}'"
+                f"'{self.__class__.__name__}' 对象没有属性 '{name}'"
             )
         return partial(self.call_api, name)

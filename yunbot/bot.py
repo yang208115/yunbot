@@ -1,8 +1,7 @@
-"""OneBot v11 bot implementation.
+"""OneBot v11 机器人实现。
 
-This module provides the bot class that represents a single bot instance
-connected through a connection. It handles API calls and provides methods
-for interacting with the OneBot v11 protocol.
+该模块提供表示通过连接的单个机器人实例的机器人类。
+它处理 API 调用并提供与 OneBot v11 协议交互的方法。
 """
 
 from typing import Any, Dict, List, Optional, Union
@@ -14,60 +13,59 @@ from .logger import default_logger as logger
 
 
 class OneBotBot:
-    """OneBot v11 bot implementation."""
+    """OneBot v11 机器人实现。"""
     
     def __init__(self, self_id: int, connection: WebSocketConnection):
-        """Initialize bot."""
+        """初始化机器人。"""
         self.self_id = self_id
         self.connection = connection
         self._ready = False
     
     async def initialize(self) -> None:
-        """Initialize bot.
+        """初始化机器人。
         
-        This method initializes the bot by getting login information and
-        setting the bot's self_id. It also marks the bot as ready.
+        该方法通过获取登录信息并设置机器人的 self_id 来初始化机器人。
+        它还将机器人标记为就绪状态。
         
         Raises:
-            Exception: If initialization fails
+            Exception: 初始化失败时抛出
         """
         try:
             login_info = await self.get_login_info()
             self.self_id = login_info.get("user_id", self.self_id)
             self._ready = True
-            logger.info(f"Bot {self.self_id} initialized successfully")
+            logger.info(f"机器人 {self.self_id} 初始化成功")
         except Exception as e:
-            logger.error(f"Failed to initialize bot: {e}")
+            logger.error(f"初始化机器人失败: {e}")
             raise
     
     @property
     def is_ready(self) -> bool:
-        """Check if bot is ready."""
+        """检查机器人是否就绪。"""
         return self._ready
     
     async def call_api(self, action: str, **params: Any) -> Dict[str, Any]:
-        """Call OneBot API.
+        """调用 OneBot API。
         
-        This method sends an API request through the bot's connection and
-        returns the response data.
+        该方法通过机器人的连接发送 API 请求并返回响应数据。
         
         Args:
-            action: The API action to call
-            **params: Parameters for the API call
+            action: 要调用的 API 操作
+            **params: API 调用的参数
         
         Returns:
-            Dict containing the API response data
+            包含 API 响应数据的字典
         
         Raises:
-            ApiNotAvailable: If the connection is not available
-            ActionFailed: If the API call fails
+            ApiNotAvailable: 连接不可用时抛出
+            ActionFailed: API 调用失败时抛出
         """
         if not self.connection.is_connected:
-            raise ApiNotAvailable("Connection not available")
+            raise ApiNotAvailable("连接不可用")
         
         try:
             result = await self.connection.send_request(action, params)
-            # Extract data field from full response
+            # 从完整响应中提取数据字段
             if isinstance(result, dict) and "data" in result:
                 return result["data"]
             return result
@@ -75,24 +73,24 @@ class OneBotBot:
             logger.error(f"API调用失败: {action} - {e}")
             raise ActionFailed(f"API调用失败: {e}")
     
-    # Message APIs
+    # 消息 API
     async def send_private_msg(
         self,
         user_id: int,
         message: Union[str, Message, List[MessageSegment]],
         auto_escape: bool = False
     ) -> Dict[str, Any]:
-        """Send private message.
+        """发送私聊消息。
         
         Args:
-            user_id: User ID to send message to
-            message: Message content (string, Message object, or list of MessageSegment)
-            auto_escape: Whether to auto-escape special characters
+            user_id: 要发送消息的用户 ID
+            message: 消息内容（字符串、Message 对象或 MessageSegment 列表）
+            auto_escape: 是否自动转义特殊字符
         
         Returns:
-            Dict containing the API response
+            包含 API 响应的字典
         """
-        # Convert message to appropriate format
+        # 将消息转换为适当的格式
         if isinstance(message, str):
             message_data = Message(message).to_dict()
         elif isinstance(message, Message):
@@ -118,17 +116,17 @@ class OneBotBot:
         message: Union[str, Message, List[MessageSegment]],
         auto_escape: bool = False
     ) -> Dict[str, Any]:
-        """Send group message.
+        """发送群消息。
         
         Args:
-            group_id: Group ID to send message to
-            message: Message content (string, Message object, or list of MessageSegment)
-            auto_escape: Whether to auto-escape special characters
+            group_id: 要发送消息的群 ID
+            message: 消息内容（字符串、Message 对象或 MessageSegment 列表）
+            auto_escape: 是否自动转义特殊字符
         
         Returns:
-            Dict containing the API response
+            包含 API 响应的字典
         """
-        # Convert message to appropriate format
+        # 将消息转换为适当的格式
         if isinstance(message, str):
             message_data = Message(message).to_dict()
         elif isinstance(message, Message):
@@ -156,60 +154,60 @@ class OneBotBot:
         message: Optional[Union[str, Message, List[MessageSegment]]] = None,
         auto_escape: bool = False
     ) -> Dict[str, Any]:
-        """Send message.
+        """发送消息。
         
         Args:
-            message_type: Type of message ("private" or "group")
-            user_id: User ID for private messages
-            group_id: Group ID for group messages
-            message: Message content
-            auto_escape: Whether to auto-escape special characters
+            message_type: 消息类型 ("private" 或 "group")
+            user_id: 私聊消息的用户 ID
+            group_id: 群消息的群 ID
+            message: 消息内容
+            auto_escape: 是否自动转义特殊字符
         
         Returns:
-            Dict containing the API response
+            包含 API 响应的字典
         
         Raises:
-            ValueError: If required parameters are missing or message_type is invalid
+            ValueError: 缺少必需参数或 message_type 无效时抛出
         """
         if message_type == "private":
             if user_id is None:
-                raise ValueError("user_id is required for private message")
+                raise ValueError("私聊消息需要 user_id")
             if message is None:
-                raise ValueError("message is required")
+                raise ValueError("消息是必需的")
             return await self.send_private_msg(user_id, message, auto_escape)
         elif message_type == "group":
             if group_id is None:
-                raise ValueError("group_id is required for group message")
+                raise ValueError("群消息需要 group_id")
             if message is None:
-                raise ValueError("message is required")
+                raise ValueError("消息是必需的")
             return await self.send_group_msg(group_id, message, auto_escape)
         else:
-            raise ValueError(f"Invalid message_type: {message_type}")
+            raise ValueError(f"无效的消息类型: {message_type}")
     
     async def delete_msg(self, message_id: int) -> Dict[str, Any]:
-        """Delete message."""
+        """删除消息。"""
         return await self.call_api("delete_msg", message_id=message_id)
     
     async def get_msg(self, message_id: int) -> Dict[str, Any]:
-        """Get message."""
+        """获取消息。"""
         return await self.call_api("get_msg", message_id=message_id)
     
     async def get_forward_msg(self, message_id: int) -> Dict[str, Any]:
-        """Get forward message."""
+        """获取转发消息。"""
         return await self.call_api("get_forward_msg", message_id=message_id)
     
     async def send_like(self, user_id: int, times: int = 1) -> Dict[str, Any]:
-        """Send like."""
+        """发送赞。"""
         return await self.call_api("send_like", user_id=user_id, times=times)
     
-    # Group Management APIs
+    # 群管理 API
     async def set_group_kick(
         self,
         group_id: int,
         user_id: int,
         reject_add_request: bool = False
     ) -> Dict[str, Any]:
-        """Kick group member."""
+        """踢出群成员。"""
         return await self.call_api(
             "set_group_kick",
             group_id=group_id,
@@ -223,7 +221,7 @@ class OneBotBot:
         user_id: int,
         duration: int = 30 * 60
     ) -> Dict[str, Any]:
-        """Ban group member."""
+        """禁言群成员。"""
         return await self.call_api(
             "set_group_ban",
             group_id=group_id,
@@ -238,16 +236,16 @@ class OneBotBot:
         anonymous_flag: Optional[str] = None,
         duration: int = 30 * 60
     ) -> Dict[str, Any]:
-        """Ban anonymous user.
+        """禁言匿名用户。
         
         Args:
-            group_id: Group ID
-            anonymous: Anonymous user info
-            anonymous_flag: Anonymous flag
-            duration: Ban duration in seconds
+            group_id: 群 ID
+            anonymous: 匿名用户信息
+            anonymous_flag: 匿名标记
+            duration: 禁言时长（秒）
         
         Returns:
-            Dict containing the API response
+            包含 API 响应的字典
         """
         params: Dict[str, Union[int, str, Dict[str, Any]]] = {"group_id": group_id, "duration": duration}
         if anonymous is not None:
@@ -261,7 +259,7 @@ class OneBotBot:
         group_id: int,
         enable: bool = True
     ) -> Dict[str, Any]:
-        """Set group whole ban."""
+        """设置全员禁言。"""
         return await self.call_api(
             "set_group_whole_ban",
             group_id=group_id,
@@ -274,7 +272,7 @@ class OneBotBot:
         user_id: int,
         enable: bool = True
     ) -> Dict[str, Any]:
-        """Set group admin."""
+        """设置群管理员。"""
         return await self.call_api(
             "set_group_admin",
             group_id=group_id,
@@ -287,7 +285,7 @@ class OneBotBot:
         group_id: int,
         enable: bool = True
     ) -> Dict[str, Any]:
-        """Set group anonymous."""
+        """设置群匿名。"""
         return await self.call_api(
             "set_group_anonymous",
             group_id=group_id,
@@ -300,7 +298,7 @@ class OneBotBot:
         user_id: int,
         card: str = ""
     ) -> Dict[str, Any]:
-        """Set group card."""
+        """设置群名片。"""
         return await self.call_api(
             "set_group_card",
             group_id=group_id,
@@ -309,7 +307,7 @@ class OneBotBot:
         )
     
     async def set_group_name(self, group_id: int, group_name: str) -> Dict[str, Any]:
-        """Set group name."""
+        """设置群名称。"""
         return await self.call_api(
             "set_group_name",
             group_id=group_id,
@@ -321,7 +319,7 @@ class OneBotBot:
         group_id: int,
         is_dismiss: bool = False
     ) -> Dict[str, Any]:
-        """Leave group."""
+        """退出群。"""
         return await self.call_api(
             "set_group_leave",
             group_id=group_id,
@@ -335,7 +333,7 @@ class OneBotBot:
         special_title: str = "",
         duration: int = -1
     ) -> Dict[str, Any]:
-        """Set group special title."""
+        """设置群专属头衔。"""
         return await self.call_api(
             "set_group_special_title",
             group_id=group_id,
@@ -344,14 +342,14 @@ class OneBotBot:
             duration=duration
         )
     
-    # Request Handling APIs
+    # 请求处理 API
     async def set_friend_add_request(
         self,
         flag: str,
         approve: bool = True,
         remark: str = ""
     ) -> Dict[str, Any]:
-        """Handle friend add request."""
+        """处理好友添加请求。"""
         return await self.call_api(
             "set_friend_add_request",
             flag=flag,
@@ -366,7 +364,7 @@ class OneBotBot:
         approve: bool = True,
         reason: str = ""
     ) -> Dict[str, Any]:
-        """Handle group add request."""
+        """处理群添加请求。"""
         return await self.call_api(
             "set_group_add_request",
             flag=flag,
@@ -375,9 +373,9 @@ class OneBotBot:
             reason=reason
         )
     
-    # Information APIs
+    # 信息 API
     async def get_login_info(self) -> Dict[str, Any]:
-        """Get login info."""
+        """获取登录信息。"""
         return await self.call_api("get_login_info")
     
     async def get_stranger_info(
@@ -385,7 +383,7 @@ class OneBotBot:
         user_id: int,
         no_cache: bool = False
     ) -> Dict[str, Any]:
-        """Get stranger info."""
+        """获取陌生人信息。"""
         return await self.call_api(
             "get_stranger_info",
             user_id=user_id,
@@ -393,7 +391,7 @@ class OneBotBot:
         )
     
     async def get_friend_list(self) -> List[Dict[str, Any]]:
-        """Get friend list."""
+        """获取好友列表。"""
         result = await self.call_api("get_friend_list")
         return result if isinstance(result, list) else []
     
@@ -402,7 +400,7 @@ class OneBotBot:
         group_id: int,
         no_cache: bool = False
     ) -> Dict[str, Any]:
-        """Get group info."""
+        """获取群信息。"""
         return await self.call_api(
             "get_group_info",
             group_id=group_id,
@@ -410,7 +408,7 @@ class OneBotBot:
         )
     
     async def get_group_list(self) -> List[Dict[str, Any]]:
-        """Get group list."""
+        """获取群列表。"""
         result = await self.call_api("get_group_list")
         return result if isinstance(result, list) else []
     
@@ -420,7 +418,7 @@ class OneBotBot:
         user_id: int,
         no_cache: bool = False
     ) -> Dict[str, Any]:
-        """Get group member info."""
+        """获取群成员信息。"""
         return await self.call_api(
             "get_group_member_info",
             group_id=group_id,
@@ -432,7 +430,7 @@ class OneBotBot:
         self,
         group_id: int
     ) -> List[Dict[str, Any]]:
-        """Get group member list."""
+        """获取群成员列表。"""
         result = await self.call_api("get_group_member_list", group_id=group_id)
         return result if isinstance(result, list) else []
     
@@ -441,7 +439,7 @@ class OneBotBot:
         group_id: int,
         type_: str
     ) -> Dict[str, Any]:
-        """Get group honor info."""
+        """获取群荣誉信息。"""
         return await self.call_api(
             "get_group_honor_info",
             group_id=group_id,
@@ -449,15 +447,15 @@ class OneBotBot:
         )
     
     async def get_cookies(self, domain: str) -> Dict[str, Any]:
-        """Get cookies."""
+        """获取 cookies。"""
         return await self.call_api("get_cookies", domain=domain)
     
     async def get_csrf_token(self) -> Dict[str, Any]:
-        """Get CSRF token."""
+        """获取 CSRF token。"""
         return await self.call_api("get_csrf_token")
     
     async def get_credentials(self, domain: str) -> Dict[str, Any]:
-        """Get credentials."""
+        """获取凭证。"""
         return await self.call_api("get_credentials", domain=domain)
     
     async def get_record(
@@ -465,7 +463,7 @@ class OneBotBot:
         file: str,
         out_format: str
     ) -> Dict[str, Any]:
-        """Get record."""
+        """获取语音。"""
         return await self.call_api(
             "get_record",
             file=file,
@@ -473,43 +471,43 @@ class OneBotBot:
         )
     
     async def get_image(self, file: str) -> Dict[str, Any]:
-        """Get image."""
+        """获取图片。"""
         return await self.call_api("get_image", file=file)
     
     async def can_send_image(self) -> Dict[str, Any]:
-        """Check if can send image."""
+        """检查是否可以发送图片。"""
         return await self.call_api("can_send_image")
     
     async def can_send_record(self) -> Dict[str, Any]:
-        """Check if can send record."""
+        """检查是否可以发送语音。"""
         return await self.call_api("can_send_record")
     
     async def get_status(self) -> Dict[str, Any]:
-        """Get status."""
+        """获取状态。"""
         return await self.call_api("get_status")
     
     async def get_version_info(self) -> Dict[str, Any]:
-        """Get version info."""
+        """获取版本信息。"""
         return await self.call_api("get_version_info")
     
     async def set_restart(self, delay: int = 0) -> Dict[str, Any]:
-        """Set restart."""
+        """设置重启。"""
         return await self.call_api("set_restart", delay=delay)
     
     async def clean_cache(self) -> Dict[str, Any]:
-        """Clean cache."""
+        """清理缓存。"""
         return await self.call_api("clean_cache")
     
-    # Helper methods
+    # 辅助方法
     async def send(self, event: Event, message: Union[str, Message, List[MessageSegment]]) -> Dict[str, Any]:
-        """Reply to event."""
+        """回复事件。"""
         if isinstance(event, PrivateMessageEvent):
             return await self.send_private_msg(event.user_id, message)
         elif isinstance(event, GroupMessageEvent):
             return await self.send_group_msg(event.group_id, message)
         else:
-            raise ValueError("Cannot send message to this event type")
+            raise ValueError("无法向此事件类型发送消息")
     
     async def reply(self, event: MessageEvent, message: Union[str, Message, List[MessageSegment]]) -> Dict[str, Any]:
-        """Reply to message event."""
+        """回复消息事件。"""
         return await self.send(event, message)

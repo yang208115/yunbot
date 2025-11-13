@@ -58,7 +58,7 @@ class Matcher:
                     handler(event)
             return self.block
         except Exception as e:
-            logger.error(f"Error running matcher handler: {e}")
+            logger.error(f"运行匹配器处理器时出错: {e}")
             return False
 
 
@@ -82,7 +82,7 @@ async def handle_event(event: Event) -> None:
                 if block:
                     break  # 阻止事件继续传播
         except Exception as e:
-            logger.error(f"Error handling matcher {matcher}: {e}")
+            logger.error(f"处理匹配器 {matcher} 时出错: {e}")
 
 
 def on(
