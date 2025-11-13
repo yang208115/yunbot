@@ -5,7 +5,7 @@
 """
 
 import time
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Union
 
 
 class OneBotException(Exception):
@@ -243,3 +243,215 @@ class ConfigurationError(OneBotException):
     def __init__(self, message: str = "Configuration error", *args: Any) -> None:
         """初始化配置错误异常。"""
         super().__init__(message, *args)
+
+
+class RateLimitError(ActionFailed):
+    """速率限制异常。
+    
+    当 API 调用频率超过限制时抛出。
+    
+    Attributes:
+        retry_after: 建议的重试等待时间(秒)
+        limit_type: 限制类型(api/message/global)
+    """
+    
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded",
+        retry_after: Optional[int] = None,
+        limit_type: str = "api",
+        *args: Any
+    ) -> None:
+        """初始化速率限制异常。
+        
+        Args:
+            message: 错误信息
+            retry_after: 建议的重试等待时间(秒)
+            limit_type: 限制类型
+            args: 其他参数
+        """
+        super().__init__(message, retcode=429, *args)
+        self.retry_after = retry_after
+        self.limit_type = limit_type
+    
+    def __str__(self) -> str:
+        """返回格式化的错误信息。"""
+        parts = [f"速率限制: {self.message}"]
+        if self.retry_after:
+            parts.append(f"建议{self.retry_after}秒后重试")
+        if self.limit_type:
+            parts.append(f"限制类型: {self.limit_type}")
+        return " | ".join(parts)
+
+
+class PermissionError(ActionFailed):
+    """权限不足异常。
+    
+    当机器人没有执行某操作的权限时抛出。
+    
+    Attributes:
+        required_permission: 需要的权限
+        current_permission: 当前权限
+    """
+    
+    def __init__(
+        self,
+        message: str = "Permission denied",
+        required_permission: Optional[str] = None,
+        current_permission: Optional[str] = None,
+        *args: Any
+    ) -> None:
+        """初始化权限不足异常。
+        
+        Args:
+            message: 错误信息
+            required_permission: 需要的权限
+            current_permission: 当前权限
+            args: 其他参数
+        """
+        super().__init__(message, retcode=403, *args)
+        self.required_permission = required_permission
+        self.current_permission = current_permission
+    
+    def __str__(self) -> str:
+        """返回格式化的错误信息。"""
+        parts = [f"权限不足: {self.message}"]
+        if self.required_permission:
+            parts.append(f"需要权限: {self.required_permission}")
+        if self.current_permission:
+            parts.append(f"当前权限: {self.current_permission}")
+        return " | ".join(parts)
+
+
+class RetryableError(OneBotException):
+    """可重试的错误异常。
+    
+    表示该错误是暂时性的，可以通过重试解决。
+    
+    Attributes:
+        max_retries: 最大重试次数
+        current_retry: 当前重试次数
+        backoff_factor: 退避系数(指数退避)
+    """
+    
+    def __init__(
+        self,
+        message: str,
+        max_retries: int = 3,
+        current_retry: int = 0,
+        backoff_factor: float = 2.0,
+        *args: Any
+    ) -> None:
+        """初始化可重试错误异常。
+        
+        Args:
+            message: 错误信息
+            max_retries: 最大重试次数
+            current_retry: 当前重试次数
+            backoff_factor: 退避系数
+            args: 其他参数
+        """
+        super().__init__(message, *args)
+        self.max_retries = max_retries
+        self.current_retry = current_retry
+        self.backoff_factor = backoff_factor
+    
+    def should_retry(self) -> bool:
+        """判断是否应该重试。
+        
+        Returns:
+            bool: 如果应该重试返回 True，否则返回 False
+        """
+        return self.current_retry < self.max_retries
+    
+    def get_retry_delay(self) -> float:
+        """计算下次重试的等待时间(指数退避)。
+        
+        Returns:
+            float: 等待时间(秒)
+        """
+        return self.backoff_factor ** self.current_retry
+    
+    def increment_retry(self) -> None:
+        """增加重试计数。"""
+        self.current_retry += 1
+    
+    def __str__(self) -> str:
+        """返回格式化的错误信息。"""
+        return f"{self.message} (重试 {self.current_retry}/{self.max_retries})"
+
+
+class ResourceNotFound(ActionFailed):
+    """资源未找到异常。
+    
+    当请求的资源不存在时抛出。
+    
+    Attributes:
+        resource_type: 资源类型(user/group/message等)
+        resource_id: 资源ID
+    """
+    
+    def __init__(
+        self,
+        message: str = "Resource not found",
+        resource_type: Optional[str] = None,
+        resource_id: Optional[Union[int, str]] = None,
+        *args: Any
+    ) -> None:
+        """初始化资源未找到异常。
+        
+        Args:
+            message: 错误信息
+            resource_type: 资源类型
+            resource_id: 资源ID
+            args: 其他参数
+        """
+        super().__init__(message, retcode=404, *args)
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+    
+    def __str__(self) -> str:
+        """返回格式化的错误信息。"""
+        parts = [f"资源未找到: {self.message}"]
+        if self.resource_type:
+            parts.append(f"类型: {self.resource_type}")
+        if self.resource_id:
+            parts.append(f"ID: {self.resource_id}")
+        return " | ".join(parts)
+
+
+class ServerError(OneBotException):
+    """服务器错误异常。
+    
+    当服务器内部错误时抛出。
+    
+    Attributes:
+        status_code: HTTP状态码
+        server_message: 服务器返回的错误信息
+    """
+    
+    def __init__(
+        self,
+        message: str = "Server error",
+        status_code: int = 500,
+        server_message: Optional[str] = None,
+        *args: Any
+    ) -> None:
+        """初始化服务器错误异常。
+        
+        Args:
+            message: 错误信息
+            status_code: HTTP状态码
+            server_message: 服务器返回的错误信息
+            args: 其他参数
+        """
+        super().__init__(message, *args)
+        self.status_code = status_code
+        self.server_message = server_message
+    
+    def __str__(self) -> str:
+        """返回格式化的错误信息。"""
+        parts = [f"服务器错误({self.status_code}): {self.message}"]
+        if self.server_message:
+            parts.append(f"服务器消息: {self.server_message}")
+        return " | ".join(parts)

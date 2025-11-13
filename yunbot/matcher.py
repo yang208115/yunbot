@@ -14,6 +14,103 @@ from .message import Message, MessageSegment
 from .logger import default_logger as logger
 
 
+class Rule:
+    """事件规则基类，支持逻辑组合。
+    
+    支持使用 & (逻辑与) 和 | (逻辑或) 进行规则组合。
+    """
+    
+    def __call__(self, event: Event) -> bool:
+        """检查事件是否符合规则。
+        
+        Args:
+            event: 要检查的事件
+            
+        Returns:
+            bool: 如果符合规则返回 True，否则返回 False
+        """
+        raise NotImplementedError
+    
+    def __and__(self, other: "Rule") -> "AndRule":
+        """创建 AND 规则组合。
+        
+        Args:
+            other: 另一个规则
+            
+        Returns:
+            AndRule: AND 逻辑组合规则
+        """
+        return AndRule(self, other)
+    
+    def __or__(self, other: "Rule") -> "OrRule":
+        """创建 OR 规则组合。
+        
+        Args:
+            other: 另一个规则
+            
+        Returns:
+            OrRule: OR 逻辑组合规则
+        """
+        return OrRule(self, other)
+
+
+class AndRule(Rule):
+    """逻辑与规则组合。
+    
+    当所有子规则都符合时才返回 True。
+    """
+    
+    def __init__(self, *rules: Rule) -> None:
+        """初始化 AND 规则。
+        
+        Args:
+            rules: 子规则列表
+        """
+        self.rules = rules
+    
+    def __call__(self, event: Event) -> bool:
+        """检查所有子规则是否都符合。"""
+        return all(rule(event) for rule in self.rules)
+
+
+class OrRule(Rule):
+    """逻辑或规则组合。
+    
+    当任意子规则符合时就返回 True。
+    """
+    
+    def __init__(self, *rules: Rule) -> None:
+        """初始化 OR 规则。
+        
+        Args:
+            rules: 子规则列表
+        """
+        self.rules = rules
+    
+    def __call__(self, event: Event) -> bool:
+        """检查是否有任意子规则符合。"""
+        return any(rule(event) for rule in self.rules)
+
+
+class FuncRule(Rule):
+    """基于函数的规则。
+    
+    将一个函数包装为规则对象。
+    """
+    
+    def __init__(self, func: Callable[[Event], bool]) -> None:
+        """初始化函数规则。
+        
+        Args:
+            func: 检查函数
+        """
+        self.func = func
+    
+    def __call__(self, event: Event) -> bool:
+        """调用检查函数。"""
+        return self.func(event)
+
+
 class Matcher:
     """事件处理器类"""
     
@@ -128,8 +225,15 @@ def on_metaevent(
     return on(type_="meta_event", priority=priority, block=block)
 
 
-def startswith(msg: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
-    """匹配消息开头"""
+def startswith(msg: Union[str, tuple[str, ...]]) -> Rule:
+    """匹配消息开头。
+    
+    Args:
+        msg: 要匹配的开头字符串或字符串元组
+        
+    Returns:
+        Rule: 匹配规则
+    """
     def _startswith_checker(event: Event) -> bool:
         if not isinstance(event, MessageEvent):
             return False
@@ -150,11 +254,18 @@ def startswith(msg: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
         else:
             return any(text.startswith(m) for m in msg)
     
-    return _startswith_checker
+    return FuncRule(_startswith_checker)
 
 
-def endswith(msg: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
-    """匹配消息结尾"""
+def endswith(msg: Union[str, tuple[str, ...]]) -> Rule:
+    """匹配消息结尾。
+    
+    Args:
+        msg: 要匹配的结尾字符串或字符串元组
+        
+    Returns:
+        Rule: 匹配规则
+    """
     def _endswith_checker(event: Event) -> bool:
         if not isinstance(event, MessageEvent):
             return False
@@ -175,11 +286,18 @@ def endswith(msg: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
         else:
             return any(text.endswith(m) for m in msg)
     
-    return _endswith_checker
+    return FuncRule(_endswith_checker)
 
 
-def fullmatch(msg: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
-    """完全匹配消息"""
+def fullmatch(msg: Union[str, tuple[str, ...]]) -> Rule:
+    """完全匹配消息。
+    
+    Args:
+        msg: 要匹配的字符串或字符串元组
+        
+    Returns:
+        Rule: 匹配规则
+    """
     def _fullmatch_checker(event: Event) -> bool:
         if not isinstance(event, MessageEvent):
             return False
@@ -200,11 +318,18 @@ def fullmatch(msg: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
         else:
             return text in msg
     
-    return _fullmatch_checker
+    return FuncRule(_fullmatch_checker)
 
 
-def keyword(keywords: Set[str]) -> Callable[[Event], bool]:
-    """匹配消息关键词"""
+def keyword(keywords: Set[str]) -> Rule:
+    """匹配消息关键词。
+    
+    Args:
+        keywords: 关键词集合
+        
+    Returns:
+        Rule: 匹配规则
+    """
     def _keyword_checker(event: Event) -> bool:
         if not isinstance(event, MessageEvent):
             return False
@@ -222,11 +347,18 @@ def keyword(keywords: Set[str]) -> Callable[[Event], bool]:
         
         return any(keyword in text for keyword in keywords)
     
-    return _keyword_checker
+    return FuncRule(_keyword_checker)
 
 
-def command(cmd: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
-    """匹配命令"""
+def command(cmd: Union[str, tuple[str, ...]]) -> Rule:
+    """匹配命令。
+    
+    Args:
+        cmd: 命令字符串或命令元组
+        
+    Returns:
+        Rule: 匹配规则
+    """
     def _command_checker(event: Event) -> bool:
         if not isinstance(event, MessageEvent):
             return False
@@ -251,11 +383,19 @@ def command(cmd: Union[str, tuple[str, ...]]) -> Callable[[Event], bool]:
         else:
             return text.split()[0] in cmd
     
-    return _command_checker
+    return FuncRule(_command_checker)
 
 
-def regex(pattern: str, flags: Union[int, re.RegexFlag] = 0) -> Callable[[Event], bool]:
-    """正则表达式匹配"""
+def regex(pattern: str, flags: Union[int, re.RegexFlag] = 0) -> Rule:
+    """正则表达式匹配。
+    
+    Args:
+        pattern: 正则表达式模式
+        flags: 正则表达式标志
+        
+    Returns:
+        Rule: 匹配规则
+    """
     def _regex_checker(event: Event) -> bool:
         if not isinstance(event, MessageEvent):
             return False
@@ -275,7 +415,7 @@ def regex(pattern: str, flags: Union[int, re.RegexFlag] = 0) -> Callable[[Event]
         
         return match_result
     
-    return _regex_checker
+    return FuncRule(_regex_checker)
 
 
 def on_startswith(
@@ -414,6 +554,10 @@ def on_regex(
 # 导出常用类和函数
 __all__ = [
     "Matcher",
+    "Rule",
+    "AndRule",
+    "OrRule",
+    "FuncRule",
     "on",
     "on_message",
     "on_notice",

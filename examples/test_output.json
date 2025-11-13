@@ -1,0 +1,21 @@
+{
+  "connections": [
+    {
+      "type": "websocket",
+      "self_id": null,
+      "access_token": "test_token",
+      "secret": null,
+      "timeout": 30.0,
+      "retry_times": 3,
+      "retry_interval": 1.0,
+      "url": "ws://127.0.0.1:6700",
+      "heartbeat_interval": null
+    }
+  ],
+  "api_timeout": 60.0,
+  "max_concurrent_requests": 100,
+  "enable_heartbeat": true,
+  "heartbeat_interval": 30.0,
+  "reconnect_interval": 5.0,
+  "max_reconnect_attempts": 5
+}

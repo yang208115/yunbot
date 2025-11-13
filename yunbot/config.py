@@ -4,8 +4,18 @@
 它包含不同连接类型的模型和主要配置。
 """
 
+import json
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Union, Literal
 from pydantic import BaseModel, Field, field_validator, ConfigDict
+
+try:
+    import yaml  # type: ignore
+    YAML_AVAILABLE = True
+except ImportError:
+    yaml = None  # type: ignore
+    YAML_AVAILABLE = False
 
 
 class ConnectionConfig(BaseModel):
@@ -30,6 +40,7 @@ class HttpConfig(ConnectionConfig):
     
     type: str = "http"
     base_url: str = Field(..., description="HTTP API 的基础 URL")
+    heartbeat_interval: Optional[float] = Field(None, description="心跳间隔（秒）")
     
     @field_validator("base_url")
     def validate_base_url(cls, v: str) -> str:
@@ -87,6 +98,7 @@ class ReverseWebSocketConfig(ConnectionConfig):
     host: str = Field(default="127.0.0.1", description="监听的主机")
     port: int = Field(..., description="监听的端口")
     path: str = Field(default="/onebot/v11/ws", description="WebSocket 路径")
+    heartbeat_interval: Optional[float] = Field(None, description="心跳间隔（秒）")
     
     @field_validator("port")
     def validate_port(cls, v: int) -> int:
@@ -116,6 +128,7 @@ class WebhookConfig(ConnectionConfig):
     host: str = Field(default="127.0.0.1", description="监听的主机")
     port: int = Field(..., description="监听的端口")
     path: str = Field(default="/onebot/v11/webhook", description="Webhook 路径")
+    heartbeat_interval: Optional[float] = Field(None, description="心跳间隔（秒）")
     
     @field_validator("port")
     def validate_port(cls, v: int) -> int:
@@ -196,3 +209,141 @@ class Config(BaseModel):
             List[ConnectionTypes]: 匹配的连接配置列表
         """
         return [conn for conn in self.connections if conn.type in types]
+    
+    @classmethod
+    def from_file(cls, path: Union[str, Path], encoding: str = "utf-8") -> "Config":
+        """从文件加载配置。
+        
+        支持 JSON 和 YAML 格式,根据文件扩展名自动识别。
+        加载后会应用环境变量覆盖(以 YUNBOT_ 为前缀)。
+        
+        Args:
+            path: 配置文件路径
+            encoding: 文件编码,默认为 utf-8
+            
+        Returns:
+            Config: 配置实例
+            
+        Raises:
+            FileNotFoundError: 如果文件不存在
+            ValueError: 如果文件格式不支持或解析失败
+            ImportError: 如果 YAML 文件需要 PyYAML 但未安装
+            
+        Examples:
+            >>> config = Config.from_file("config.json")
+            >>> config = Config.from_file("config.yaml")
+        """
+        path = Path(path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"配置文件不存在: {path}")
+        
+        # 读取文件内容
+        content = path.read_text(encoding=encoding)
+        
+        # 根据扩展名解析
+        suffix = path.suffix.lower()
+        
+        if suffix == ".json":
+            data = json.loads(content)
+        elif suffix in (".yaml", ".yml"):
+            if not YAML_AVAILABLE:
+                raise ImportError(
+                    "加载 YAML 配置需要安装 PyYAML: pip install pyyaml"
+                )
+            data = yaml.safe_load(content)
+        else:
+            raise ValueError(
+                f"不支持的配置文件格式: {suffix}。支持的格式: .json, .yaml, .yml"
+            )
+        
+        # 应用环境变量覆盖
+        data = cls._apply_env_overrides(data)
+        
+        return cls(**data)
+    
+    @staticmethod
+    def _apply_env_overrides(data: Dict) -> Dict:
+        """应用环境变量覆盖配置。
+        
+        支持的环境变量格式:
+        - YUNBOT_API_TIMEOUT: 覆盖 api_timeout
+        - YUNBOT_MAX_CONCURRENT_REQUESTS: 覆盖 max_concurrent_requests
+        - YUNBOT_ENABLE_HEARTBEAT: 覆盖 enable_heartbeat (true/false)
+        - YUNBOT_HEARTBEAT_INTERVAL: 覆盖 heartbeat_interval
+        - YUNBOT_RECONNECT_INTERVAL: 覆盖 reconnect_interval
+        - YUNBOT_MAX_RECONNECT_ATTEMPTS: 覆盖 max_reconnect_attempts
+        
+        Args:
+            data: 原始配置字典
+            
+        Returns:
+            Dict: 应用环境变量覆盖后的配置字典
+        """
+        env_mappings = {
+            "YUNBOT_API_TIMEOUT": ("api_timeout", float),
+            "YUNBOT_MAX_CONCURRENT_REQUESTS": ("max_concurrent_requests", int),
+            "YUNBOT_ENABLE_HEARTBEAT": ("enable_heartbeat", lambda x: x.lower() == "true"),
+            "YUNBOT_HEARTBEAT_INTERVAL": ("heartbeat_interval", float),
+            "YUNBOT_RECONNECT_INTERVAL": ("reconnect_interval", float),
+            "YUNBOT_MAX_RECONNECT_ATTEMPTS": ("max_reconnect_attempts", int),
+        }
+        
+        for env_key, (config_key, converter) in env_mappings.items():
+            env_value = os.getenv(env_key)
+            if env_value is not None:
+                try:
+                    data[config_key] = converter(env_value)
+                except (ValueError, TypeError):
+                    # 忽略无效的环境变量值
+                    pass
+        
+        return data
+    
+    def to_file(self, path: Union[str, Path], encoding: str = "utf-8", indent: int = 2) -> None:
+        """将配置保存到文件。
+        
+        支持 JSON 和 YAML 格式,根据文件扩展名自动识别。
+        
+        Args:
+            path: 配置文件路径
+            encoding: 文件编码,默认为 utf-8
+            indent: 缩进空格数,默认为 2
+            
+        Raises:
+            ValueError: 如果文件格式不支持
+            ImportError: 如果 YAML 文件需要 PyYAML 但未安装
+            
+        Examples:
+            >>> config.to_file("config.json")
+            >>> config.to_file("config.yaml")
+        """
+        path = Path(path)
+        suffix = path.suffix.lower()
+        
+        # 转换为字典
+        data = self.model_dump()
+        
+        if suffix == ".json":
+            content = json.dumps(data, ensure_ascii=False, indent=indent)
+        elif suffix in (".yaml", ".yml"):
+            if not YAML_AVAILABLE:
+                raise ImportError(
+                    "保存 YAML 配置需要安装 PyYAML: pip install pyyaml"
+                )
+            content = yaml.safe_dump(
+                data, 
+                allow_unicode=True, 
+                default_flow_style=False,
+                indent=indent
+            )
+        else:
+            raise ValueError(
+                f"不支持的配置文件格式: {suffix}。支持的格式: .json, .yaml, .yml"
+            )
+        
+        # 确保父目录存在
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 写入文件
+        path.write_text(content, encoding=encoding)

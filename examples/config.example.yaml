@@ -1,0 +1,29 @@
+# YunBot 配置文件示例 (YAML 格式)
+
+# 连接配置列表
+connections:
+  - type: websocket
+    url: ws://127.0.0.1:6700
+    access_token: your_access_token_here
+    heartbeat_interval: 30.0
+    timeout: 30.0
+    retry_times: 3
+    retry_interval: 1.0
+
+# API 调用超时时间(秒)
+api_timeout: 30.0
+
+# 最大并发 API 请求数
+max_concurrent_requests: 100
+
+# 是否启用心跳
+enable_heartbeat: true
+
+# 默认心跳间隔(秒)
+heartbeat_interval: 30.0
+
+# 重连间隔(秒)
+reconnect_interval: 5.0
+
+# 最大重连尝试次数
+max_reconnect_attempts: 10

@@ -68,6 +68,16 @@ from .exceptions import (
     NetworkException,
     ActionFailed,
     ApiNotAvailable,
+    RateLimitError,
+    PermissionError,
+    RetryableError,
+    ResourceNotFound,
+    ServerError,
+    TimeoutException,
+    AuthenticationFailed,
+    ConnectionClosed,
+    InvalidEvent,
+    ConfigurationError,
 )
 from .matcher import (
     on,
@@ -89,7 +99,7 @@ from .matcher import (
     regex,
 )
 from .logger import YunBotLogger, get_logger, setup_logging, default_logger
-from .message import Message, MessageSegment
+from .message import Message, MessageSegment, MessageBuilder
 from .utils import logger
 
 __all__ = [
@@ -106,8 +116,19 @@ __all__ = [
     "NetworkException",
     "ActionFailed",
     "ApiNotAvailable",
+    "RateLimitError",
+    "PermissionError",
+    "RetryableError",
+    "ResourceNotFound",
+    "ServerError",
+    "TimeoutException",
+    "AuthenticationFailed",
+    "ConnectionClosed",
+    "InvalidEvent",
+    "ConfigurationError",
     "Message",
     "MessageSegment",
+    "MessageBuilder",
     "on",
     "on_message",
     "on_notice",

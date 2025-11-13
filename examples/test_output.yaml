@@ -1,0 +1,16 @@
+api_timeout: 60.0
+connections:
+- access_token: test_token
+  heartbeat_interval: null
+  retry_interval: 1.0
+  retry_times: 3
+  secret: null
+  self_id: null
+  timeout: 30.0
+  type: websocket
+  url: ws://127.0.0.1:6700
+enable_heartbeat: true
+heartbeat_interval: 30.0
+max_concurrent_requests: 100
+max_reconnect_attempts: 5
+reconnect_interval: 5.0

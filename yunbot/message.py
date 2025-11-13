@@ -725,3 +725,226 @@ class Message(RootModel[List[MessageSegment]]):
             segments.append(MessageSegment.text(message))
 
         return segments
+
+
+class MessageBuilder:
+    """消息构建器，支持链式调用构建消息。
+    
+    提供便捷的链式API来构建复杂的消息。
+    
+    示例:
+        >>> builder = MessageBuilder()
+        >>> msg = builder.text("你好").at(123456).image("http://example.com/pic.jpg").build()
+    """
+    
+    def __init__(self) -> None:
+        """初始化消息构建器。"""
+        self._segments: List[MessageSegment] = []
+    
+    def text(self, text: str) -> "MessageBuilder":
+        """添加文本消息段。
+        
+        Args:
+            text: 文本内容
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.text(text))
+        return self
+    
+    def face(self, id: int) -> "MessageBuilder":
+        """添加表情消息段。
+        
+        Args:
+            id: 表情ID
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.face(id))
+        return self
+    
+    def image(
+        self,
+        file: str,
+        type: Optional[str] = None,
+        url: Optional[str] = None,
+        cache: Optional[bool] = None,
+        proxy: Optional[bool] = None,
+        timeout: Optional[int] = None,
+    ) -> "MessageBuilder":
+        """添加图片消息段。
+        
+        Args:
+            file: 图片文件路径或URL
+            type: 图片类型
+            url: 图片URL
+            cache: 是否缓存
+            proxy: 是否使用代理
+            timeout: 超时时间
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.image(file, type, url, cache, proxy, timeout))
+        return self
+    
+    def record(
+        self,
+        file: str,
+        magic: Optional[bool] = None,
+        cache: Optional[bool] = None,
+        proxy: Optional[bool] = None,
+        timeout: Optional[int] = None,
+    ) -> "MessageBuilder":
+        """添加语音消息段。
+        
+        Args:
+            file: 语音文件路径或URL
+            magic: 是否使用魔法转换
+            cache: 是否缓存
+            proxy: 是否使用代理
+            timeout: 超时时间
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.record(file, magic, cache, proxy, timeout))
+        return self
+    
+    def video(
+        self,
+        file: str,
+        cache: Optional[bool] = None,
+        proxy: Optional[bool] = None,
+        timeout: Optional[int] = None,
+    ) -> "MessageBuilder":
+        """添加视频消息段。
+        
+        Args:
+            file: 视频文件路径或URL
+            cache: 是否缓存
+            proxy: 是否使用代理
+            timeout: 超时时间
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.video(file, cache, proxy, timeout))
+        return self
+    
+    def at(self, qq: Union[int, str]) -> "MessageBuilder":
+        """添加@消息段。
+        
+        Args:
+            qq: 要@的QQ号
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.at(qq))
+        return self
+    
+    def at_all(self, channel: Optional[str] = None) -> "MessageBuilder":
+        """添加@全体成员消息段。
+        
+        Args:
+            channel: 频道名称
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.at_all(channel))
+        return self
+    
+    def reply(self, id: int) -> "MessageBuilder":
+        """添加回复消息段。
+        
+        Args:
+            id: 要回复的消息ID
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.reply(id))
+        return self
+    
+    def share(
+        self,
+        url: str,
+        title: str,
+        content: Optional[str] = None,
+        image: Optional[str] = None,
+    ) -> "MessageBuilder":
+        """添加分享消息段。
+        
+        Args:
+            url: 分享的URL
+            title: 分享标题
+            content: 分享内容
+            image: 图片URL
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.share(url, title, content, image))
+        return self
+    
+    def location(
+        self,
+        lat: float,
+        lon: float,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+    ) -> "MessageBuilder":
+        """添加位置消息段。
+        
+        Args:
+            lat: 纬度
+            lon: 经度
+            title: 位置标题
+            content: 位置内容
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(MessageSegment.location(lat, lon, title, content))
+        return self
+    
+    def add(self, segment: MessageSegment) -> "MessageBuilder":
+        """添加自定义消息段。
+        
+        Args:
+            segment: 消息段
+            
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.append(segment)
+        return self
+    
+    def build(self) -> Message:
+        """构建最终的消息对象。
+        
+        Returns:
+            Message: 构建完成的消息对象
+        """
+        return Message(self._segments)
+    
+    def clear(self) -> "MessageBuilder":
+        """清空所有消息段。
+        
+        Returns:
+            MessageBuilder: 返回自身以支持链式调用
+        """
+        self._segments.clear()
+        return self
+    
+    def __len__(self) -> int:
+        """获取消息段数量。"""
+        return len(self._segments)
+    
+    def __repr__(self) -> str:
+        """获取构建器的字符串表示。"""
+        return f"MessageBuilder(segments={len(self._segments)})"
